@@ -19,8 +19,15 @@ export function RoomCard({ room }: RoomCardProps) {
 
   const updateOccupancy = useMutation({
     mutationFn: async (newOccupancy: number) => {
+      const token = localStorage.getItem("token");
+      if (!token) throw new Error("Not authenticated");
+
       await apiRequest("POST", `/api/rooms/${room.id}/occupancy`, {
         occupancy: newOccupancy,
+      }, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       });
     },
     onSuccess: () => {
@@ -41,7 +48,14 @@ export function RoomCard({ room }: RoomCardProps) {
 
   const updateStatus = useMutation({
     mutationFn: async (isOpen: boolean) => {
-      await apiRequest("POST", `/api/rooms/${room.id}/status`, { isOpen });
+      const token = localStorage.getItem("token");
+      if (!token) throw new Error("Not authenticated");
+
+      await apiRequest("POST", `/api/rooms/${room.id}/status`, { isOpen }, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/rooms"] });
