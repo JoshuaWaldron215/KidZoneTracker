@@ -22,16 +22,15 @@ export function RoomCard({ room }: RoomCardProps) {
       const token = localStorage.getItem("token");
       if (!token) throw new Error("Not authenticated");
 
-      const response = await apiRequest(
-        "POST",
-        `/api/rooms/${room.id}/occupancy`,
-        { occupancy: newOccupancy },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      const response = await fetch(`/api/rooms/${room.id}/occupancy`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ occupancy: newOccupancy }),
+        credentials: 'include',
+      });
 
       if (!response.ok) {
         const error = await response.json();

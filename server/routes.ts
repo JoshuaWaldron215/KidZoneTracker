@@ -84,6 +84,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const roomId = parseInt(req.params.id);
       console.log('Request body:', req.body); // Debug log
+      console.log('Request headers:', req.headers); // Debug log
 
       if (!req.body.hasOwnProperty('occupancy')) {
         return res.status(400).json({ message: "Occupancy value is required" });
