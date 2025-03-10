@@ -56,10 +56,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/rooms/:id/occupancy", authenticateStaff, async (req, res) => {
     try {
-      const { roomId, occupancy } = updateOccupancySchema.parse({
-        roomId: parseInt(req.params.id),
-        occupancy: req.body.occupancy,
-      });
+      const roomId = parseInt(req.params.id);
+      const { occupancy } = req.body;
+
+      if (typeof occupancy !== 'number' || isNaN(occupancy) || occupancy < 0) {
+        return res.status(400).json({ message: "Invalid occupancy value" });
+      }
 
       const room = await storage.getRoom(roomId);
       if (!room) {
@@ -67,10 +69,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const updatedRoom = await storage.updateRoomOccupancy(roomId, occupancy);
-      
+
       // Handle notifications
       const notifications = await storage.getNotifications(roomId);
-      
+
       if (occupancy >= room.maxCapacity) {
         for (const notification of notifications) {
           if (notification.type === "FULL") {
@@ -88,6 +90,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json(updatedRoom);
     } catch (error) {
+      console.error('Error updating room occupancy:', error);
       res.status(400).json({ message: "Invalid request" });
     }
   });
