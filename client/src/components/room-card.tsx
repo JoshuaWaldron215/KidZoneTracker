@@ -37,12 +37,14 @@ export function RoomCard({ room }: RoomCardProps) {
         description: "Room occupancy updated",
       });
     },
-    onError: () => {
+    onError: (error) => {
       toast({
         title: "Error",
-        description: "Failed to update room occupancy",
+        description: error instanceof Error ? error.message : "Failed to update room occupancy",
         variant: "destructive",
       });
+      // Reset the input to the current occupancy on error
+      setOccupancy(room.currentOccupancy.toString());
     },
   });
 
@@ -75,8 +77,9 @@ export function RoomCard({ room }: RoomCardProps) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const newOccupancy = parseInt(occupancy);
-    if (isNaN(newOccupancy) || newOccupancy < 0) {
+    const newOccupancy = parseInt(occupancy, 10);
+
+    if (isNaN(newOccupancy)) {
       toast({
         title: "Error",
         description: "Please enter a valid number",
@@ -84,6 +87,25 @@ export function RoomCard({ room }: RoomCardProps) {
       });
       return;
     }
+
+    if (newOccupancy < 0) {
+      toast({
+        title: "Error",
+        description: "Occupancy cannot be negative",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (newOccupancy > room.maxCapacity) {
+      toast({
+        title: "Error",
+        description: `Occupancy cannot exceed maximum capacity of ${room.maxCapacity}`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     updateOccupancy.mutate(newOccupancy);
   };
 

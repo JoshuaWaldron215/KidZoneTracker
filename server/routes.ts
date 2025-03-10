@@ -94,6 +94,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Room not found" });
       }
 
+      if (occupancy > room.maxCapacity) {
+        return res.status(400).json({ 
+          message: `Occupancy cannot exceed maximum capacity of ${room.maxCapacity}` 
+        });
+      }
+
       const wasFullBefore = room.currentOccupancy >= room.maxCapacity;
       const updatedRoom = await storage.updateRoomOccupancy(roomId, occupancy);
       const isFullNow = occupancy >= room.maxCapacity;
