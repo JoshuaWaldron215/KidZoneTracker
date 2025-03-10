@@ -11,6 +11,7 @@ import type { Room } from "@shared/schema";
 export default function Public() {
   const [email, setEmail] = useState("");
   const { toast } = useToast();
+  const isStaffLoggedIn = !!localStorage.getItem("token");
 
   const { data: rooms = [], isLoading } = useQuery<Room[]>({
     queryKey: ["/api/rooms"],
@@ -48,9 +49,15 @@ export default function Public() {
       <div className="container mx-auto py-10">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-4xl font-bold">YMCA KidZone Status</h1>
-          <Link href="/login">
-            <Button variant="outline">Staff Login</Button>
-          </Link>
+          {isStaffLoggedIn ? (
+            <Link href="/dashboard">
+              <Button variant="outline">Back to Dashboard</Button>
+            </Link>
+          ) : (
+            <Link href="/login">
+              <Button variant="outline">Staff Login</Button>
+            </Link>
+          )}
         </div>
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">

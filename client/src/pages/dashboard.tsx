@@ -33,7 +33,12 @@ export default function Dashboard() {
       <div className="container mx-auto py-10">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-4xl font-bold">KidZone Dashboard</h1>
-          <Button onClick={handleLogout}>Logout</Button>
+          <div className="flex gap-4">
+            <Button variant="secondary" onClick={() => setLocation("/")}>
+              View Public Page
+            </Button>
+            <Button onClick={handleLogout}>Logout</Button>
+          </div>
         </div>
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
