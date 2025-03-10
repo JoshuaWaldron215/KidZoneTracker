@@ -83,9 +83,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/rooms/:id/occupancy", authenticateStaff, async (req, res) => {
     try {
       const roomId = parseInt(req.params.id);
-      const { occupancy } = req.body;
+      const occupancy = parseInt(req.body.occupancy);
 
-      if (typeof occupancy !== 'number' || isNaN(occupancy) || occupancy < 0) {
+      if (isNaN(occupancy) || occupancy < 0) {
         return res.status(400).json({ message: "Invalid occupancy value" });
       }
 
