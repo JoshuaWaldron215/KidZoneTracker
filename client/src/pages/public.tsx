@@ -5,12 +5,13 @@ import { Input } from "@/components/ui/input";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { Link } from "wouter";
 import type { Room } from "@shared/schema";
 
 export default function Public() {
   const [email, setEmail] = useState("");
   const { toast } = useToast();
-  
+
   const { data: rooms = [], isLoading } = useQuery<Room[]>({
     queryKey: ["/api/rooms"],
     refetchInterval: 1000 * 60 * 5, // 5 minutes
@@ -23,7 +24,7 @@ export default function Public() {
         roomId: room.id,
         type: room.currentOccupancy >= room.maxCapacity ? "AVAILABLE" : "FULL",
       });
-      
+
       toast({
         title: "Success",
         description: "You'll be notified when the room status changes",
@@ -45,13 +46,18 @@ export default function Public() {
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto py-10">
-        <h1 className="text-4xl font-bold mb-8">YMCA KidZone Status</h1>
-        
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-4xl font-bold">YMCA KidZone Status</h1>
+          <Link href="/login">
+            <Button variant="outline">Staff Login</Button>
+          </Link>
+        </div>
+
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {rooms.map((room) => (
             <div key={room.id} className="space-y-4">
               <RoomStatus room={room} />
-              
+
               <div className="flex gap-2">
                 <Input
                   type="email"
