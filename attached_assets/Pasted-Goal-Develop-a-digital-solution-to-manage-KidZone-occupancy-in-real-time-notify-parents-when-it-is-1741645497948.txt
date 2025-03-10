@@ -1,0 +1,49 @@
+Goal:
+Develop a digital solution to manage KidZone occupancy in real-time, notify parents when it is full, and indicate if additional rooms are open.
+
+1. Problem Statement
+Parents arrive at the YMCA expecting to drop their kids off at KidZone, but it is already full.
+Parents get frustrated due to the lack of prior notification.
+There is no real-time occupancy tracking or way to notify parents when space opens up.
+Two rooms are available on certain days, but parents don’t always know when or where.
+2. Proposed Solution
+A real-time occupancy tracking system that counts the number of children in each KidZone room.
+Parent notifications via email, text, or a YMCA mobile app when a room is full or available.
+A web-based dashboard for staff and parents to check live capacity.
+3. Key Features
+A. Live Occupancy Tracking
+Staff can input/check the number of kids currently in each KidZone room.
+Automatic updates every few minutes.
+Visual representation (e.g., color-coded status: Green = Available, Yellow = Near Capacity, Red = Full).
+B. Notifications System
+Parents can opt-in for SMS/email alerts.
+Notifications are triggered when:
+A room reaches max capacity.
+A space becomes available.
+A second room is opened.
+C. Web/Mobile Dashboard
+Displays current capacity of KidZone rooms.
+Accessible via YMCA’s website or a mobile app.
+Allows staff to update occupancy numbers.
+4. Technology Stack
+Component	Possible Tech Options
+Frontend (Web/App)	React.js, Next.js, Tailwind CSS, Bootstrap
+Backend	Node.js, Express.js, Firebase, or MySQL
+Database	Firebase Realtime DB, MongoDB, or MySQL
+Notification System	Twilio (for SMS), SendGrid (for email), Firebase Push Notifications
+Authentication (if needed)	Firebase Auth, OAuth
+5. Implementation Plan
+Phase 1: Research & Planning
+Gather input from KidZone staff about pain points.
+Identify how YMCA staff currently track KidZone occupancy.
+Check if YMCA has an existing mobile app to integrate with.
+Phase 2: Prototype Development
+Build a simple web interface for staff to log the number of kids in KidZone.
+Create a database to store capacity data.
+Develop a notification system (manual test with SMS/email alerts).
+Phase 3: Testing & Feedback
+Run tests during busy hours to evaluate effectiveness.
+Gather feedback from staff and parents.
+Adjust notification frequency and occupancy tracking if needed.
+Phase 4: Full Deployment
+Optimize the interface for mobile and desktop use.
