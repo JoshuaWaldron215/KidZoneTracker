@@ -83,7 +83,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/rooms/:id/occupancy", authenticateStaff, async (req, res) => {
     try {
       const roomId = parseInt(req.params.id);
+      console.log('Request body:', req.body); // Debug log
+
+      if (!req.body.hasOwnProperty('occupancy')) {
+        return res.status(400).json({ message: "Occupancy value is required" });
+      }
+
       const occupancy = parseInt(req.body.occupancy);
+      console.log('Parsed occupancy:', occupancy); // Debug log
 
       if (isNaN(occupancy) || occupancy < 0) {
         return res.status(400).json({ message: "Invalid occupancy value" });

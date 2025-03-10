@@ -22,18 +22,23 @@ export function RoomCard({ room }: RoomCardProps) {
       const token = localStorage.getItem("token");
       if (!token) throw new Error("Not authenticated");
 
-      const response = await apiRequest("POST", `/api/rooms/${room.id}/occupancy`, {
-        occupancy: newOccupancy,
-      }, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await apiRequest(
+        "POST",
+        `/api/rooms/${room.id}/occupancy`,
+        { occupancy: newOccupancy },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
 
       if (!response.ok) {
         const error = await response.json();
         throw new Error(error.message || "Failed to update room occupancy");
       }
+
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/rooms"] });
