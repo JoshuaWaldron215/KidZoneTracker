@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { useWebSocket } from "@/hooks/use-websocket";
 import { apiRequest } from "@/lib/queryClient";
 import { Link } from "wouter";
 import type { Room } from "@shared/schema";
@@ -13,9 +14,13 @@ export default function Public() {
   const { toast } = useToast();
   const isStaffLoggedIn = !!localStorage.getItem("token");
 
+  // Initialize WebSocket connection
+  useWebSocket();
+
   const { data: rooms = [], isLoading } = useQuery<Room[]>({
     queryKey: ["/api/rooms"],
-    refetchInterval: 1000 * 60 * 5, // 5 minutes
+    // Reduced polling interval since we have WebSocket now
+    refetchInterval: 1000 * 60 * 15, // 15 minutes as backup
   });
 
   const handleNotificationSignup = async (room: Room) => {

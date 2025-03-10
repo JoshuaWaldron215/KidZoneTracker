@@ -1,5 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { loginSchema, updateOccupancySchema, insertNotificationSchema } from "@shared/schema";
 import { sendRoomFullNotification, sendRoomAvailableNotification } from "./email";
@@ -8,7 +9,32 @@ import bcrypt from "bcryptjs";
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret";
 
+const clients = new Set<WebSocket>();
+
 export async function registerRoutes(app: Express): Promise<Server> {
+  const httpServer = createServer(app);
+  const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
+
+  wss.on('connection', (ws) => {
+    clients.add(ws);
+
+    ws.on('close', () => {
+      clients.delete(ws);
+    });
+  });
+
+  // Broadcast room updates to all connected clients
+  const broadcastRoomUpdate = async () => {
+    const rooms = await storage.getRooms();
+    const message = JSON.stringify({ type: 'ROOMS_UPDATE', rooms });
+
+    clients.forEach((client) => {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(message);
+      }
+    });
+  };
+
   // Auth middleware
   const authenticateStaff = async (req: any, res: any, next: any) => {
     try {
@@ -19,11 +45,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const decoded = jwt.verify(token, JWT_SECRET) as { id: number };
       const user = await storage.getUser(decoded.id);
-      
+
       if (!user?.isStaff) {
         return res.status(403).json({ message: "Not authorized" });
       }
-      
+
       req.user = user;
       next();
     } catch (error) {
@@ -36,7 +62,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const data = loginSchema.parse(req.body);
       const user = await storage.getUserByUsername(data.username);
-      
+
       if (!user || user.password !== data.password) {
         return res.status(401).json({ message: "Invalid credentials" });
       }
@@ -68,25 +94,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Room not found" });
       }
 
+      const wasFullBefore = room.currentOccupancy >= room.maxCapacity;
       const updatedRoom = await storage.updateRoomOccupancy(roomId, occupancy);
+      const isFullNow = occupancy >= room.maxCapacity;
 
       // Handle notifications
       const notifications = await storage.getNotifications(roomId);
+      const otherRooms = (await storage.getRooms()).filter(r => r.id !== roomId && r.isOpen);
 
-      if (occupancy >= room.maxCapacity) {
+      if (!wasFullBefore && isFullNow) {
+        // Room just became full
         for (const notification of notifications) {
           if (notification.type === "FULL") {
-            await sendRoomFullNotification(notification.email, room.name);
+            const message = otherRooms.length > 0 
+              ? `The ${room.name} is now full. Other rooms are available: ${otherRooms.map(r => r.name).join(", ")}`
+              : `The ${room.name} is now full. No other rooms are currently available.`;
+            await sendRoomFullNotification(notification.email, message);
           }
         }
-      } else if (occupancy < room.maxCapacity) {
+      } else if (wasFullBefore && !isFullNow) {
+        // Room just opened up
         for (const notification of notifications) {
           if (notification.type === "AVAILABLE") {
-            await sendRoomAvailableNotification(notification.email, room.name);
+            const spotsAvailable = room.maxCapacity - occupancy;
+            await sendRoomAvailableNotification(
+              notification.email, 
+              `${room.name} now has ${spotsAvailable} spot${spotsAvailable > 1 ? 's' : ''} available`
+            );
             await storage.deleteNotification(notification.id);
           }
         }
       }
+
+      // Broadcast update to all connected clients
+      await broadcastRoomUpdate();
 
       res.json(updatedRoom);
     } catch (error) {
@@ -106,6 +147,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const updatedRoom = await storage.updateRoomStatus(roomId, isOpen);
+
+      // Broadcast update to all connected clients
+      await broadcastRoomUpdate();
+
       res.json(updatedRoom);
     } catch (error) {
       res.status(400).json({ message: "Invalid request" });
@@ -123,6 +168,5 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  const httpServer = createServer(app);
   return httpServer;
 }

@@ -24,18 +24,18 @@ export async function sendEmail(to: string, subject: string, text: string) {
   }
 }
 
-export function sendRoomFullNotification(email: string, roomName: string) {
+export function sendRoomFullNotification(email: string, message: string) {
   return sendEmail(
     email,
-    `KidZone Alert: ${roomName} is now full`,
-    `The ${roomName} has reached maximum capacity. We'll notify you when space becomes available.`
+    `KidZone Alert: Room Status Update`,
+    message
   );
 }
 
-export function sendRoomAvailableNotification(email: string, roomName: string) {
+export function sendRoomAvailableNotification(email: string, message: string) {
   return sendEmail(
     email,
-    `KidZone Alert: Space available in ${roomName}`,
-    `Space is now available in the ${roomName}. You can now drop off your child.`
+    `KidZone Alert: Space Available`,
+    message
   );
 }
