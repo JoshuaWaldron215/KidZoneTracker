@@ -41,12 +41,12 @@ export class MemStorage implements IStorage {
     // Add default rooms
     this.createRoom({
       name: "Main KidZone",
-      maxCapacity: 20,
+      maxCapacity: 10,
       isOpen: true,
     });
     this.createRoom({
       name: "Overflow Room",
-      maxCapacity: 15,
+      maxCapacity: 10,
       isOpen: false,
     });
   }
