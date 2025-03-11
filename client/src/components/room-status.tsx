@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { useEffect, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { useIsMobile } from "@/hooks/use-mobile";
 import type { Room } from "@shared/schema";
 
 interface RoomStatusProps {
@@ -11,6 +12,7 @@ interface RoomStatusProps {
 
 export function RoomStatus({ room }: RoomStatusProps) {
   const { toast } = useToast();
+  const isMobile = useIsMobile();
   const prevOccupancyRef = useRef(room.currentOccupancy);
   const occupancyPercentage = (room.currentOccupancy / room.maxCapacity) * 100;
 
@@ -22,61 +24,55 @@ export function RoomStatus({ room }: RoomStatusProps) {
   }
 
   useEffect(() => {
-    // Show notifications when occupancy changes significantly
+    // Show notifications when occupancy changes
     if (prevOccupancyRef.current !== room.currentOccupancy) {
       console.log('Occupancy changed:', {
+        room: room.name,
         previous: prevOccupancyRef.current,
         current: room.currentOccupancy,
-        maxCapacity: room.maxCapacity
+        maxCapacity: room.maxCapacity,
+        isMobile
       });
 
-      const wasNearlyFull = prevOccupancyRef.current >= room.maxCapacity * 0.9;
-      const isNearlyFull = room.currentOccupancy >= room.maxCapacity * 0.9;
+      // Always show toast notification for any change
+      const spotsRemaining = room.maxCapacity - room.currentOccupancy;
+      const message = room.currentOccupancy >= room.maxCapacity 
+        ? `${room.name} is now FULL`
+        : `${room.name}: ${spotsRemaining} spot${spotsRemaining !== 1 ? 's' : ''} remaining`;
 
-      if (!wasNearlyFull && isNearlyFull) {
-        // Room is becoming full
-        console.log('Showing nearly full notification');
-        toast({
-          title: `${room.name} Almost Full`,
-          description: `Only ${room.maxCapacity - room.currentOccupancy} spots remaining`,
-          variant: "destructive",
-        });
+      console.log('Showing notification:', message);
 
-        // Try to show browser notification if supported
-        try {
-          if ("Notification" in window && Notification.permission === "granted") {
-            new Notification("KidZone Alert", {
-              body: `${room.name} Almost Full - Only ${room.maxCapacity - room.currentOccupancy} spots remaining`,
-              icon: "/favicon.ico"
-            });
+      // Always show toast
+      toast({
+        title: room.name,
+        description: message,
+        variant: room.currentOccupancy >= room.maxCapacity ? "destructive" : "default",
+      });
+
+      // Try browser notification if supported and enabled
+      try {
+        if ("Notification" in window && Notification.permission === "granted") {
+          const notification = new Notification("KidZone Status Update", {
+            body: message,
+            icon: "/favicon.ico",
+            tag: room.id.toString(), // Prevent duplicate notifications
+            vibrate: isMobile ? [200, 100, 200] : undefined // Vibrate on mobile
+          });
+
+          // Clear notification after 5 seconds on mobile
+          if (isMobile) {
+            setTimeout(() => notification.close(), 5000);
           }
-        } catch (error) {
-          console.error('Failed to show browser notification:', error);
-        }
-      } else if (wasNearlyFull && !isNearlyFull) {
-        // Room has opened up
-        console.log('Showing space available notification');
-        toast({
-          title: `${room.name} Has Space`,
-          description: `${room.maxCapacity - room.currentOccupancy} spots now available`,
-        });
 
-        // Try to show browser notification if supported
-        try {
-          if ("Notification" in window && Notification.permission === "granted") {
-            new Notification("KidZone Alert", {
-              body: `${room.name} Has Space - ${room.maxCapacity - room.currentOccupancy} spots now available`,
-              icon: "/favicon.ico"
-            });
-          }
-        } catch (error) {
-          console.error('Failed to show browser notification:', error);
+          console.log('Browser notification sent');
         }
+      } catch (error) {
+        console.error('Failed to show browser notification:', error);
       }
 
       prevOccupancyRef.current = room.currentOccupancy;
     }
-  }, [room.currentOccupancy, room.maxCapacity, room.name, toast]);
+  }, [room.currentOccupancy, room.maxCapacity, room.name, room.id, toast, isMobile]);
 
   return (
     <Card>
