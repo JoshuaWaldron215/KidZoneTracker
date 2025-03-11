@@ -2,18 +2,25 @@ import { MailService } from '@sendgrid/mail';
 
 // Initialize the SendGrid mail service
 const mailService = new MailService();
-mailService.setApiKey(process.env.SENDGRID_API_KEY);
+mailService.setApiKey(process.env.SENDGRID_API_KEY || '');
 
 export async function sendEmail(to: string, subject: string, text: string) {
   try {
     console.log('Attempting to send email via SendGrid to:', to);
 
+    // Validate email addresses
+    if (!to || !to.includes('@')) {
+      throw new Error('Invalid recipient email address');
+    }
+
+    const fromEmail = process.env.SENDGRID_FROM;
+    if (!fromEmail || !fromEmail.includes('@')) {
+      throw new Error('Invalid sender email configuration');
+    }
+
     const msg = {
       to,
-      from: {
-        email: process.env.SENDGRID_FROM || 'Fromjshawnwaldron@gmail.com',
-        name: 'YMCA KidZone'
-      },
+      from: fromEmail, // Use the email address directly without additional formatting
       subject,
       text,
       html: text.replace(/\n/g, '<br>')
