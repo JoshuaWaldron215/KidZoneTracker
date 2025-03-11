@@ -19,34 +19,37 @@ export function RoomCard({ room }: RoomCardProps) {
 
   const updateOccupancy = useMutation({
     mutationFn: async (newOccupancy: number) => {
+      console.log('Updating occupancy:', {
+        room: room.name,
+        current: room.currentOccupancy,
+        new: newOccupancy
+      });
+
       const token = localStorage.getItem("token");
       if (!token) throw new Error("Not authenticated");
 
-      const response = await fetch(`/api/rooms/${room.id}/occupancy`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ occupancy: newOccupancy }),
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Failed to update room occupancy");
-      }
+      const response = await apiRequest("POST", `/api/rooms/${room.id}/occupancy`, 
+        { occupancy: newOccupancy },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
 
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (updatedRoom) => {
       queryClient.invalidateQueries({ queryKey: ["/api/rooms"] });
+
+      // Show immediate feedback to staff
+      const message = `Updated ${room.name} occupancy to ${updatedRoom.currentOccupancy}/${updatedRoom.maxCapacity}`;
+      console.log(message);
+
       toast({
         title: "Success",
-        description: "Room occupancy updated",
+        description: message,
+        duration: 3000,
       });
     },
     onError: (error) => {
+      console.error('Failed to update occupancy:', error);
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to update room occupancy",
@@ -62,17 +65,16 @@ export function RoomCard({ room }: RoomCardProps) {
       const token = localStorage.getItem("token");
       if (!token) throw new Error("Not authenticated");
 
-      await apiRequest("POST", `/api/rooms/${room.id}/status`, { isOpen }, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      await apiRequest("POST", `/api/rooms/${room.id}/status`, 
+        { isOpen },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/rooms"] });
       toast({
         title: "Success",
-        description: "Room status updated",
+        description: `${room.name} is now ${room.isOpen ? 'closed' : 'open'}`,
       });
     },
     onError: () => {

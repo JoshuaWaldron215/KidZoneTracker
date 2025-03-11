@@ -13,16 +13,25 @@ export function useWebSocket() {
   useEffect(() => {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}/ws`;
+    console.log('Connecting to WebSocket:', wsUrl);
 
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
+    ws.onopen = () => {
+      console.log('WebSocket connected');
+    };
+
     ws.onmessage = (event) => {
       try {
+        console.log('WebSocket message received:', event.data);
         const data = JSON.parse(event.data);
+
         if (data.type === 'ROOMS_UPDATE') {
           // Get previous rooms data
           const previousRooms = queryClient.getQueryData<Room[]>(['/api/rooms']) || [];
+          console.log('Previous rooms:', previousRooms);
+          console.log('New rooms:', data.rooms);
 
           // Update the rooms data in the cache
           queryClient.setQueryData(['/api/rooms'], data.rooms);
@@ -31,10 +40,11 @@ export function useWebSocket() {
           data.rooms.forEach((newRoom: Room) => {
             const prevRoom = previousRooms.find(r => r.id === newRoom.id);
             if (prevRoom && prevRoom.currentOccupancy !== newRoom.currentOccupancy) {
-              console.log('Room occupancy changed via WebSocket:', {
+              console.log('Room occupancy changed:', {
                 room: newRoom.name,
                 previous: prevRoom.currentOccupancy,
-                current: newRoom.currentOccupancy
+                current: newRoom.currentOccupancy,
+                maxCapacity: newRoom.maxCapacity
               });
 
               // Calculate remaining spots
@@ -43,41 +53,44 @@ export function useWebSocket() {
                 ? `${newRoom.name} is now FULL`
                 : `${newRoom.name}: ${spotsRemaining} spot${spotsRemaining !== 1 ? 's' : ''} remaining`;
 
-              // Always show toast
+              // Show toast notification with higher duration
               toast({
-                title: newRoom.name,
+                title: "Room Status Update",
                 description: message,
                 variant: newRoom.currentOccupancy >= newRoom.maxCapacity ? "destructive" : "default",
+                duration: 5000, // Show for 5 seconds
               });
 
-              // Try browser notification if supported and enabled
-              try {
-                if ("Notification" in window && Notification.permission === "granted") {
-                  const notification = new Notification("KidZone Status Update", {
-                    body: message,
-                    icon: "/favicon.ico",
-                    tag: newRoom.id.toString(), // Prevent duplicate notifications
-                    vibrate: isMobile ? [200, 100, 200] : undefined // Vibrate on mobile
-                  });
+              // Try browser notification
+              if ("Notification" in window && Notification.permission === "granted") {
+                console.log('Sending browser notification');
+                const notification = new Notification("KidZone Status Update", {
+                  body: message,
+                  icon: "/favicon.ico",
+                  tag: newRoom.id.toString(),
+                  requireInteraction: true, // Keep notification visible until user dismisses it
+                });
 
-                  // Clear notification after 5 seconds on mobile
-                  if (isMobile) {
-                    setTimeout(() => notification.close(), 5000);
-                  }
+                // On mobile, add vibration and auto-close
+                if (isMobile) {
+                  navigator.vibrate?.(200);
+                  setTimeout(() => notification.close(), 5000);
                 }
-              } catch (error) {
-                console.error('Failed to show browser notification:', error);
               }
             }
           });
         }
       } catch (error) {
-        console.error('Failed to parse WebSocket message:', error);
+        console.error('Failed to process WebSocket message:', error);
       }
     };
 
     ws.onerror = (error) => {
       console.error('WebSocket error:', error);
+    };
+
+    ws.onclose = () => {
+      console.log('WebSocket closed');
     };
 
     return () => {
