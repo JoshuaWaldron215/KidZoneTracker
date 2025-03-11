@@ -2,13 +2,15 @@ import { useQuery } from "@tanstack/react-query";
 import { RoomStatus } from "@/components/room-status";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
-import { useNotifications } from "@/hooks/use-notifications";
+import { useToast } from "@/hooks/use-toast";
 import { useWebSocket } from "@/hooks/use-websocket";
+import { useState, useEffect } from "react";
 import type { Room } from "@shared/schema";
 
 export default function Public() {
   const isStaffLoggedIn = !!localStorage.getItem("token");
-  const { isSupported, isEnabled, requestPermission } = useNotifications();
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const { toast } = useToast();
 
   // Initialize WebSocket connection
   useWebSocket();
@@ -18,6 +20,58 @@ export default function Public() {
     // Reduced polling interval since we have WebSocket now
     refetchInterval: 1000 * 60 * 15, // 15 minutes as backup
   });
+
+  // Check notification permission on mount
+  useEffect(() => {
+    if ("Notification" in window) {
+      setNotificationsEnabled(Notification.permission === "granted");
+      console.log('Current notification permission:', Notification.permission);
+    }
+  }, []);
+
+  const enableNotifications = async () => {
+    try {
+      if (!("Notification" in window)) {
+        toast({
+          title: "Notifications Not Available",
+          description: "Your browser doesn't support notifications. Updates will show in the app.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      console.log('Requesting notification permission...');
+      const permission = await Notification.requestPermission();
+      console.log('Permission result:', permission);
+
+      if (permission === "granted") {
+        setNotificationsEnabled(true);
+        toast({
+          title: "Notifications Enabled",
+          description: "You'll receive alerts when room status changes",
+        });
+
+        // Test notification
+        new Notification("KidZone Notifications Active", {
+          body: "You will now receive alerts about room availability",
+          icon: "/favicon.ico"
+        });
+      } else {
+        toast({
+          title: "Notifications Disabled",
+          description: "Please enable notifications in your browser settings to receive alerts",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Error enabling notifications:', error);
+      toast({
+        title: "Error",
+        description: "Failed to enable notifications. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
 
   if (isLoading) {
     return <div>Loading...</div>;
@@ -39,14 +93,14 @@ export default function Public() {
           )}
         </div>
 
-        {isSupported && (
+        {"Notification" in window && (
           <div className="mb-8">
             <Button 
-              onClick={requestPermission}
-              disabled={isEnabled}
+              onClick={enableNotifications}
+              disabled={notificationsEnabled}
               variant="outline"
             >
-              {isEnabled ? "Notifications Enabled" : "Enable Notifications"}
+              {notificationsEnabled ? "Notifications Enabled" : "Enable Notifications"}
             </Button>
             <p className="text-sm text-muted-foreground mt-2">
               Get instant alerts when room status changes

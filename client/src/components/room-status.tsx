@@ -2,7 +2,7 @@ import { AlertCircle, Users } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { useEffect, useRef } from "react";
-import { useNotifications } from "@/hooks/use-notifications";
+import { useToast } from "@/hooks/use-toast";
 import type { Room } from "@shared/schema";
 
 interface RoomStatusProps {
@@ -10,7 +10,7 @@ interface RoomStatusProps {
 }
 
 export function RoomStatus({ room }: RoomStatusProps) {
-  const { showNotification } = useNotifications();
+  const { toast } = useToast();
   const prevOccupancyRef = useRef(room.currentOccupancy);
   const occupancyPercentage = (room.currentOccupancy / room.maxCapacity) * 100;
 
@@ -24,33 +24,59 @@ export function RoomStatus({ room }: RoomStatusProps) {
   useEffect(() => {
     // Show notifications when occupancy changes significantly
     if (prevOccupancyRef.current !== room.currentOccupancy) {
+      console.log('Occupancy changed:', {
+        previous: prevOccupancyRef.current,
+        current: room.currentOccupancy,
+        maxCapacity: room.maxCapacity
+      });
+
       const wasNearlyFull = prevOccupancyRef.current >= room.maxCapacity * 0.9;
       const isNearlyFull = room.currentOccupancy >= room.maxCapacity * 0.9;
 
       if (!wasNearlyFull && isNearlyFull) {
         // Room is becoming full
-        showNotification(
-          "KidZone Alert",
-          {
-            body: `${room.name} Almost Full - Only ${room.maxCapacity - room.currentOccupancy} spots remaining`,
-            tag: "warning",
-            icon: "/favicon.ico"
+        console.log('Showing nearly full notification');
+        toast({
+          title: `${room.name} Almost Full`,
+          description: `Only ${room.maxCapacity - room.currentOccupancy} spots remaining`,
+          variant: "destructive",
+        });
+
+        // Try to show browser notification if supported
+        try {
+          if ("Notification" in window && Notification.permission === "granted") {
+            new Notification("KidZone Alert", {
+              body: `${room.name} Almost Full - Only ${room.maxCapacity - room.currentOccupancy} spots remaining`,
+              icon: "/favicon.ico"
+            });
           }
-        );
+        } catch (error) {
+          console.error('Failed to show browser notification:', error);
+        }
       } else if (wasNearlyFull && !isNearlyFull) {
         // Room has opened up
-        showNotification(
-          "KidZone Alert",
-          {
-            body: `${room.name} Has Space - ${room.maxCapacity - room.currentOccupancy} spots now available`,
-            icon: "/favicon.ico"
+        console.log('Showing space available notification');
+        toast({
+          title: `${room.name} Has Space`,
+          description: `${room.maxCapacity - room.currentOccupancy} spots now available`,
+        });
+
+        // Try to show browser notification if supported
+        try {
+          if ("Notification" in window && Notification.permission === "granted") {
+            new Notification("KidZone Alert", {
+              body: `${room.name} Has Space - ${room.maxCapacity - room.currentOccupancy} spots now available`,
+              icon: "/favicon.ico"
+            });
           }
-        );
+        } catch (error) {
+          console.error('Failed to show browser notification:', error);
+        }
       }
 
       prevOccupancyRef.current = room.currentOccupancy;
     }
-  }, [room.currentOccupancy, room.maxCapacity, room.name, showNotification]);
+  }, [room.currentOccupancy, room.maxCapacity, room.name, toast]);
 
   return (
     <Card>
@@ -71,8 +97,7 @@ export function RoomStatus({ room }: RoomStatusProps) {
         </div>
         <Progress 
           value={occupancyPercentage} 
-          className="mt-3"
-          indicatorColor={statusColor}
+          className={`mt-3 ${statusColor}`}
         />
       </CardContent>
     </Card>
