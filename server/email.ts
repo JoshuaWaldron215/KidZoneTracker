@@ -11,7 +11,7 @@ export async function sendEmail(to: string, subject: string, text: string) {
     const msg = {
       to,
       from: {
-        email: process.env.SENDGRID_FROM || 'noreply@ymca-kidzone.com',
+        email: process.env.SENDGRID_FROM || 'Fromjshawnwaldron@gmail.com',
         name: 'YMCA KidZone'
       },
       subject,
