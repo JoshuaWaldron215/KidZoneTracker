@@ -32,14 +32,14 @@ export default function Public() {
       });
 
       toast({
-        title: "Success",
-        description: "You'll be notified when the room status changes",
+        title: "Notification Preferences Saved",
+        description: `We'll show you notifications for ${room.name} status changes`,
       });
       setEmail("");
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to sign up for notifications",
+        description: "Failed to save notification preferences",
         variant: "destructive",
       });
     }
@@ -78,7 +78,7 @@ export default function Public() {
                   onChange={(e) => setEmail(e.target.value)}
                 />
                 <Button onClick={() => handleNotificationSignup(room)}>
-                  Notify Me
+                  Save Preferences
                 </Button>
               </div>
             </div>

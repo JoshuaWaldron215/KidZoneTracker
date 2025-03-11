@@ -1,6 +1,8 @@
 import { AlertCircle, Users } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { useToast } from "@/hooks/use-toast";
+import { useEffect, useRef } from "react";
 import type { Room } from "@shared/schema";
 
 interface RoomStatusProps {
@@ -8,14 +10,39 @@ interface RoomStatusProps {
 }
 
 export function RoomStatus({ room }: RoomStatusProps) {
+  const { toast } = useToast();
+  const prevOccupancyRef = useRef(room.currentOccupancy);
   const occupancyPercentage = (room.currentOccupancy / room.maxCapacity) * 100;
-  
+
   let statusColor = "bg-green-500";
   if (occupancyPercentage >= 90) {
     statusColor = "bg-red-500";
   } else if (occupancyPercentage >= 75) {
     statusColor = "bg-yellow-500";
   }
+
+  useEffect(() => {
+    // Show toast notification when occupancy changes significantly
+    if (prevOccupancyRef.current !== room.currentOccupancy) {
+      const wasNearlyFull = prevOccupancyRef.current >= room.maxCapacity * 0.9;
+      const isNearlyFull = room.currentOccupancy >= room.maxCapacity * 0.9;
+
+      if (!wasNearlyFull && isNearlyFull) {
+        toast({
+          title: `${room.name} Almost Full`,
+          description: `Only ${room.maxCapacity - room.currentOccupancy} spots remaining`,
+          variant: "warning",
+        });
+      } else if (wasNearlyFull && !isNearlyFull) {
+        toast({
+          title: `${room.name} Has Space`,
+          description: `${room.maxCapacity - room.currentOccupancy} spots now available`,
+        });
+      }
+
+      prevOccupancyRef.current = room.currentOccupancy;
+    }
+  }, [room.currentOccupancy, room.maxCapacity, room.name, toast]);
 
   return (
     <Card>
