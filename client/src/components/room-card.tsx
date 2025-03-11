@@ -45,15 +45,52 @@ export function RoomCard({ room }: RoomCardProps) {
     onSuccess: (updatedRoom) => {
       queryClient.invalidateQueries({ queryKey: ["/api/rooms"] });
 
-      // Show immediate feedback to staff
-      const message = `Updated ${room.name} occupancy to ${updatedRoom.currentOccupancy}/${updatedRoom.maxCapacity}`;
-      console.log(message);
+      // Show immediate feedback based on room status
+      const isFull = updatedRoom.currentOccupancy >= updatedRoom.maxCapacity;
+      const wasFull = room.currentOccupancy >= room.maxCapacity;
 
-      toast({
-        title: "Success",
-        description: message,
-        duration: 3000,
-      });
+      if (!wasFull && isFull) {
+        // Room just became full
+        toast({
+          title: "Room Full Alert",
+          description: `${room.name} is now at full capacity`,
+          variant: "destructive",
+          duration: 5000,
+        });
+
+        // Show browser notification if enabled
+        if ("Notification" in window && Notification.permission === "granted") {
+          new Notification("KidZone Room Full", {
+            body: `${room.name} has reached full capacity`,
+            icon: "/favicon.ico",
+            requireInteraction: true
+          });
+        }
+      } else if (wasFull && !isFull) {
+        // Room just opened up
+        toast({
+          title: "Space Available",
+          description: `${room.name} now has spots available`,
+          variant: "default",
+          duration: 5000,
+        });
+
+        // Show browser notification if enabled
+        if ("Notification" in window && Notification.permission === "granted") {
+          new Notification("KidZone Space Available", {
+            body: `${room.name} now has spots available`,
+            icon: "/favicon.ico",
+            requireInteraction: true
+          });
+        }
+      } else {
+        // Regular update
+        toast({
+          title: "Update Successful",
+          description: `${room.name} occupancy updated to ${updatedRoom.currentOccupancy}/${updatedRoom.maxCapacity}`,
+          duration: 3000,
+        });
+      }
     },
     onError: (error) => {
       console.error('Failed to update occupancy:', error);
