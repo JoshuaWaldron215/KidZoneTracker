@@ -22,22 +22,46 @@ export function RoomStatus({ room }: RoomStatusProps) {
   }
 
   useEffect(() => {
-    // Show toast notification when occupancy changes significantly
+    // Show notifications when occupancy changes significantly
     if (prevOccupancyRef.current !== room.currentOccupancy) {
       const wasNearlyFull = prevOccupancyRef.current >= room.maxCapacity * 0.9;
       const isNearlyFull = room.currentOccupancy >= room.maxCapacity * 0.9;
 
       if (!wasNearlyFull && isNearlyFull) {
+        // Room is becoming full
+        const message = `${room.name} Almost Full - Only ${room.maxCapacity - room.currentOccupancy} spots remaining`;
+
+        // Show toast notification
         toast({
           title: `${room.name} Almost Full`,
           description: `Only ${room.maxCapacity - room.currentOccupancy} spots remaining`,
-          variant: "warning",
+          variant: "destructive",
         });
+
+        // Show browser notification if enabled
+        if (Notification.permission === "granted") {
+          new Notification("KidZone Alert", {
+            body: message,
+            icon: "/favicon.ico", // You can add a custom icon
+          });
+        }
       } else if (wasNearlyFull && !isNearlyFull) {
+        // Room has opened up
+        const message = `${room.name} Has Space - ${room.maxCapacity - room.currentOccupancy} spots now available`;
+
+        // Show toast notification
         toast({
           title: `${room.name} Has Space`,
           description: `${room.maxCapacity - room.currentOccupancy} spots now available`,
         });
+
+        // Show browser notification if enabled
+        if (Notification.permission === "granted") {
+          new Notification("KidZone Alert", {
+            body: message,
+            icon: "/favicon.ico", // You can add a custom icon
+          });
+        }
       }
 
       prevOccupancyRef.current = room.currentOccupancy;
@@ -63,7 +87,7 @@ export function RoomStatus({ room }: RoomStatusProps) {
         </div>
         <Progress 
           value={occupancyPercentage} 
-          className="mt-3"
+          className="mt-3" 
           indicatorClassName={statusColor}
         />
       </CardContent>

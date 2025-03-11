@@ -1,18 +1,16 @@
 import { useQuery } from "@tanstack/react-query";
 import { RoomStatus } from "@/components/room-status";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useWebSocket } from "@/hooks/use-websocket";
-import { apiRequest } from "@/lib/queryClient";
 import { Link } from "wouter";
 import type { Room } from "@shared/schema";
 
 export default function Public() {
-  const [email, setEmail] = useState("");
   const { toast } = useToast();
   const isStaffLoggedIn = !!localStorage.getItem("token");
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
 
   // Initialize WebSocket connection
   useWebSocket();
@@ -23,23 +21,39 @@ export default function Public() {
     refetchInterval: 1000 * 60 * 15, // 15 minutes as backup
   });
 
-  const handleNotificationSignup = async (room: Room) => {
-    try {
-      await apiRequest("POST", "/api/notifications", {
-        email,
-        roomId: room.id,
-        type: room.currentOccupancy >= room.maxCapacity ? "AVAILABLE" : "FULL",
-      });
+  useEffect(() => {
+    // Check if browser notifications are supported
+    if (!("Notification" in window)) {
+      console.log("Browser notifications not supported");
+      return;
+    }
 
-      toast({
-        title: "Notification Preferences Saved",
-        description: `We'll show you notifications for ${room.name} status changes`,
-      });
-      setEmail("");
+    // Check if we already have permission
+    if (Notification.permission === "granted") {
+      setNotificationsEnabled(true);
+    }
+  }, []);
+
+  const enableNotifications = async () => {
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission === "granted") {
+        setNotificationsEnabled(true);
+        toast({
+          title: "Notifications Enabled",
+          description: "You'll receive notifications when room status changes",
+        });
+      } else {
+        toast({
+          title: "Notifications Disabled",
+          description: "Please enable notifications in your browser settings to receive alerts",
+          variant: "destructive",
+        });
+      }
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to save notification preferences",
+        description: "Failed to enable notifications",
         variant: "destructive",
       });
     }
@@ -65,22 +79,23 @@ export default function Public() {
           )}
         </div>
 
+        <div className="mb-8">
+          <Button 
+            onClick={enableNotifications}
+            disabled={notificationsEnabled}
+            variant="outline"
+          >
+            {notificationsEnabled ? "Notifications Enabled" : "Enable Notifications"}
+          </Button>
+          <p className="text-sm text-muted-foreground mt-2">
+            Enable browser notifications to get alerts when room status changes
+          </p>
+        </div>
+
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {rooms.map((room) => (
-            <div key={room.id} className="space-y-4">
+            <div key={room.id}>
               <RoomStatus room={room} />
-
-              <div className="flex gap-2">
-                <Input
-                  type="email"
-                  placeholder="Enter email for notifications"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-                <Button onClick={() => handleNotificationSignup(room)}>
-                  Save Preferences
-                </Button>
-              </div>
             </div>
           ))}
         </div>
