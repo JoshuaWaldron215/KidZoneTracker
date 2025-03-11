@@ -28,9 +28,16 @@ export function RoomCard({ room }: RoomCardProps) {
       const token = localStorage.getItem("token");
       if (!token) throw new Error("Not authenticated");
 
-      const response = await apiRequest("POST", `/api/rooms/${room.id}/occupancy`, 
+      const response = await apiRequest(
+        "POST", 
+        `/api/rooms/${room.id}/occupancy`,
         { occupancy: newOccupancy },
-        { headers: { Authorization: `Bearer ${token}` } }
+        { 
+          headers: { 
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
       );
 
       return response.json();
@@ -65,9 +72,16 @@ export function RoomCard({ room }: RoomCardProps) {
       const token = localStorage.getItem("token");
       if (!token) throw new Error("Not authenticated");
 
-      await apiRequest("POST", `/api/rooms/${room.id}/status`, 
+      await apiRequest(
+        "POST", 
+        `/api/rooms/${room.id}/status`,
         { isOpen },
-        { headers: { Authorization: `Bearer ${token}` } }
+        { 
+          headers: { 
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
       );
     },
     onSuccess: () => {

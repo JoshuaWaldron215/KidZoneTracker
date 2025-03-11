@@ -83,15 +83,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/rooms/:id/occupancy", authenticateStaff, async (req, res) => {
     try {
       const roomId = parseInt(req.params.id);
-      console.log('Request body:', req.body); // Debug log
-      console.log('Request headers:', req.headers); // Debug log
+      console.log('Request body:', req.body);
 
-      if (!req.body.hasOwnProperty('occupancy')) {
-        return res.status(400).json({ message: "Occupancy value is required" });
+      if (!req.body || typeof req.body.occupancy !== 'number') {
+        return res.status(400).json({ message: "Invalid occupancy value" });
       }
 
-      const occupancy = parseInt(req.body.occupancy);
-      console.log('Parsed occupancy:', occupancy); // Debug log
+      const occupancy = req.body.occupancy;
+      console.log('Processing occupancy update:', { roomId, occupancy });
 
       if (isNaN(occupancy) || occupancy < 0) {
         return res.status(400).json({ message: "Invalid occupancy value" });
@@ -118,16 +117,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (!wasFullBefore && isFullNow) {
         // Room just became full
-        console.log('Room became full, sending notifications to:', notifications.length, 'subscribers');
+        console.log('Room became full, sending notifications');
         for (const notification of notifications) {
           if (notification.type === "FULL") {
             const message = otherRooms.length > 0 
               ? `The ${room.name} is now full. Other rooms are available: ${otherRooms.map(r => r.name).join(", ")}`
               : `The ${room.name} is now full. No other rooms are currently available.`;
-            console.log('Sending full notification to:', notification.email);
+
             try {
               await sendRoomFullNotification(notification.email, message);
-              console.log('Successfully sent notification to:', notification.email);
+              console.log('Sent full notification to:', notification.email);
             } catch (error) {
               console.error('Failed to send notification:', error);
             }
@@ -135,7 +134,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       } else if (wasFullBefore && !isFullNow) {
         // Room just opened up
-        console.log('Room opened up, sending notifications to:', notifications.length, 'subscribers');
+        console.log('Room opened up, sending notifications');
         for (const notification of notifications) {
           if (notification.type === "AVAILABLE") {
             const spotsAvailable = room.maxCapacity - occupancy;
@@ -144,7 +143,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 notification.email, 
                 `${room.name} now has ${spotsAvailable} spot${spotsAvailable > 1 ? 's' : ''} available`
               );
-              console.log('Successfully sent available notification to:', notification.email);
+              console.log('Sent available notification to:', notification.email);
               await storage.deleteNotification(notification.id);
             } catch (error) {
               console.error('Failed to send notification:', error);
@@ -159,7 +158,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(updatedRoom);
     } catch (error) {
       console.error('Error updating room occupancy:', error);
-      res.status(400).json({ message: "Invalid request" });
+      res.status(500).json({ message: "Server error" });
     }
   });
 
