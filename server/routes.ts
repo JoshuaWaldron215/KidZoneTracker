@@ -118,24 +118,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (!wasFullBefore && isFullNow) {
         // Room just became full
+        console.log('Room became full, sending notifications to:', notifications.length, 'subscribers');
         for (const notification of notifications) {
           if (notification.type === "FULL") {
             const message = otherRooms.length > 0 
               ? `The ${room.name} is now full. Other rooms are available: ${otherRooms.map(r => r.name).join(", ")}`
               : `The ${room.name} is now full. No other rooms are currently available.`;
-            await sendRoomFullNotification(notification.email, message);
+            console.log('Sending full notification to:', notification.email);
+            try {
+              await sendRoomFullNotification(notification.email, message);
+              console.log('Successfully sent notification to:', notification.email);
+            } catch (error) {
+              console.error('Failed to send notification:', error);
+            }
           }
         }
       } else if (wasFullBefore && !isFullNow) {
         // Room just opened up
+        console.log('Room opened up, sending notifications to:', notifications.length, 'subscribers');
         for (const notification of notifications) {
           if (notification.type === "AVAILABLE") {
             const spotsAvailable = room.maxCapacity - occupancy;
-            await sendRoomAvailableNotification(
-              notification.email, 
-              `${room.name} now has ${spotsAvailable} spot${spotsAvailable > 1 ? 's' : ''} available`
-            );
-            await storage.deleteNotification(notification.id);
+            try {
+              await sendRoomAvailableNotification(
+                notification.email, 
+                `${room.name} now has ${spotsAvailable} spot${spotsAvailable > 1 ? 's' : ''} available`
+              );
+              console.log('Successfully sent available notification to:', notification.email);
+              await storage.deleteNotification(notification.id);
+            } catch (error) {
+              console.error('Failed to send notification:', error);
+            }
           }
         }
       }
