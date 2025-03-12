@@ -2,6 +2,7 @@ import { db } from "./db";
 import { eq } from "drizzle-orm";
 import { users, rooms, notifications, roomHistory } from "@shared/schema";
 import type { InsertUser, InsertRoom, InsertNotification, InsertRoomHistory, User, Room, Notification } from "@shared/schema";
+import bcrypt from "bcryptjs";
 
 export interface IStorage {
   // User operations
@@ -70,9 +71,9 @@ export class DatabaseStorage implements IStorage {
     // Update room
     const [updatedRoom] = await db
       .update(rooms)
-      .set({ 
+      .set({
         currentOccupancy: occupancy,
-        updatedAt: new Date()
+        updatedAt: new Date(),
       })
       .where(eq(rooms.id, id))
       .returning();
@@ -83,9 +84,9 @@ export class DatabaseStorage implements IStorage {
   async updateRoomStatus(id: number, isOpen: boolean): Promise<Room> {
     const [updatedRoom] = await db
       .update(rooms)
-      .set({ 
+      .set({
         isOpen,
-        updatedAt: new Date()
+        updatedAt: new Date(),
       })
       .where(eq(rooms.id, id))
       .returning();
@@ -123,9 +124,11 @@ async function initializeDefaultData() {
   try {
     const adminUser = await storage.getUserByUsername("admin");
     if (!adminUser) {
+      // Hash the password before storing
+      const hashedPassword = bcrypt.hashSync("admin123", 10);
       await storage.createUser({
         username: "admin",
-        password: "admin123", // In production, this should be hashed
+        password: hashedPassword,
         isStaff: true,
         role: "admin",
       });
