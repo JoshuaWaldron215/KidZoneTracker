@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
-import { loginSchema, updateOccupancySchema, insertNotificationSchema } from "@shared/schema";
+import { loginSchema, updateOccupancySchema, insertNotificationSchema, insertUserSchema } from "@shared/schema";
 import { sendRoomFullNotification, sendRoomAvailableNotification } from "./email";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
@@ -36,7 +36,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   };
 
   // Auth middleware
-  const authenticateStaff = async (req: any, res: any, next: any) => {
+  const authenticateUser = async (req: any, res: any, next: any) => {
     try {
       const token = req.headers.authorization?.split(" ")[1];
       if (!token) {
@@ -46,7 +46,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const decoded = jwt.verify(token, JWT_SECRET) as { id: number };
       const user = await storage.getUser(decoded.id);
 
-      if (!user?.isStaff) {
+      if (!user) {
         return res.status(403).json({ message: "Not authorized" });
       }
 
@@ -57,18 +57,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   };
 
+  const requireRole = (allowedRoles: string[]) => async (req: any, res: any, next: any) => {
+    if (!req.user || !allowedRoles.includes(req.user.role)) {
+      return res.status(403).json({ message: "Not authorized" });
+    }
+    next();
+  };
+
+
   // Auth routes
   app.post("/api/auth/login", async (req, res) => {
     try {
       const data = loginSchema.parse(req.body);
       const user = await storage.getUserByUsername(data.username);
 
-      if (!user || user.password !== data.password) {
+      if (!user || !bcrypt.compareSync(data.password, user.password)) {
         return res.status(401).json({ message: "Invalid credentials" });
       }
 
       const token = jwt.sign({ id: user.id }, JWT_SECRET);
-      res.json({ token, isStaff: user.isStaff });
+      res.json({ 
+        token, 
+        isStaff: user.isStaff,
+        role: user.role 
+      });
     } catch (error) {
       res.status(400).json({ message: "Invalid request" });
     }
@@ -80,17 +92,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(rooms);
   });
 
-  app.post("/api/rooms/:id/occupancy", authenticateStaff, async (req, res) => {
+  app.post("/api/rooms/:id/occupancy", authenticateUser, requireRole(['admin', 'supervisor', 'staff']), async (req, res) => {
     try {
       const roomId = parseInt(req.params.id);
-      console.log('Request body:', req.body);
 
       if (!req.body || typeof req.body.occupancy !== 'number') {
         return res.status(400).json({ message: "Invalid occupancy value" });
       }
 
       const occupancy = req.body.occupancy;
-      console.log('Processing occupancy update:', { roomId, occupancy });
 
       if (isNaN(occupancy) || occupancy < 0) {
         return res.status(400).json({ message: "Invalid occupancy value" });
@@ -117,7 +127,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (!wasFullBefore && isFullNow) {
         // Room just became full
-        console.log('Room became full, sending notifications');
         for (const notification of notifications) {
           if (notification.type === "FULL") {
             const message = otherRooms.length > 0 
@@ -126,7 +135,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
             try {
               await sendRoomFullNotification(notification.email, message);
-              console.log('Sent full notification to:', notification.email);
             } catch (error) {
               console.error('Failed to send notification:', error);
             }
@@ -134,7 +142,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       } else if (wasFullBefore && !isFullNow) {
         // Room just opened up
-        console.log('Room opened up, sending notifications');
         for (const notification of notifications) {
           if (notification.type === "AVAILABLE") {
             const spotsAvailable = room.maxCapacity - occupancy;
@@ -143,7 +150,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 notification.email, 
                 `${room.name} now has ${spotsAvailable} spot${spotsAvailable > 1 ? 's' : ''} available`
               );
-              console.log('Sent available notification to:', notification.email);
               await storage.deleteNotification(notification.id);
             } catch (error) {
               console.error('Failed to send notification:', error);
@@ -162,7 +168,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/rooms/:id/status", authenticateStaff, async (req, res) => {
+  app.post("/api/rooms/:id/status", authenticateUser, requireRole(['admin', 'supervisor']), async (req, res) => {
     try {
       const roomId = parseInt(req.params.id);
       const { isOpen } = req.body;
@@ -189,6 +195,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const data = insertNotificationSchema.parse(req.body);
       const notification = await storage.createNotification(data);
       res.json(notification);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid request" });
+    }
+  });
+
+  // Add new route for managing staff
+  app.post("/api/users", authenticateUser, requireRole(['admin']), async (req, res) => {
+    try {
+      const data = insertUserSchema.parse(req.body);
+      const user = await storage.createUser(data);
+      res.json(user);
     } catch (error) {
       res.status(400).json({ message: "Invalid request" });
     }

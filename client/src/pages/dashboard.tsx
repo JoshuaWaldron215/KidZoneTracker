@@ -3,10 +3,12 @@ import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { RoomCard } from "@/components/room-card";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/lib/auth";
 import type { Room } from "@shared/schema";
 
 export default function Dashboard() {
   const [, setLocation] = useLocation();
+  const { clearAuth, role } = useAuth();
 
   useEffect(() => {
     if (!localStorage.getItem("token")) {
@@ -20,7 +22,7 @@ export default function Dashboard() {
   });
 
   const handleLogout = () => {
-    localStorage.removeItem("token");
+    clearAuth();
     setLocation("/login");
   };
 
@@ -32,7 +34,10 @@ export default function Dashboard() {
     <div className="min-h-screen bg-background">
       <div className="container mx-auto py-10">
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-4xl font-bold">KidZone Dashboard</h1>
+          <div>
+            <h1 className="text-4xl font-bold">KidZone Dashboard</h1>
+            <p className="text-muted-foreground">Logged in as {role}</p>
+          </div>
           <div className="flex gap-4">
             <Button variant="secondary" onClick={() => setLocation("/")}>
               View Public Page

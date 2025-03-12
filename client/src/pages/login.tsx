@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { useAuth } from "@/lib/auth";
 
 export default function Login() {
   const [username, setUsername] = useState("");
@@ -12,6 +13,7 @@ export default function Login() {
   const [isLoading, setIsLoading] = useState(false);
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const { setAuth } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,10 +25,14 @@ export default function Login() {
         password,
       });
       const data = await response.json();
-      
+
       if (data.isStaff) {
-        localStorage.setItem("token", data.token);
+        setAuth(data.token, data.role, data.isStaff);
         setLocation("/dashboard");
+        toast({
+          title: "Welcome",
+          description: `Logged in as ${data.role}`,
+        });
       } else {
         toast({
           title: "Error",

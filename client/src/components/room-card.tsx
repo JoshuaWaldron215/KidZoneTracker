@@ -6,6 +6,7 @@ import { Switch } from "@/components/ui/switch";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/lib/auth";
 import type { Room } from "@shared/schema";
 
 interface RoomCardProps {
@@ -16,6 +17,9 @@ export function RoomCard({ room }: RoomCardProps) {
   const [occupancy, setOccupancy] = useState(room.currentOccupancy.toString());
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { role } = useAuth();
+
+  const canManageStatus = ['admin', 'supervisor'].includes(role || '');
 
   const updateOccupancy = useMutation({
     mutationFn: async (newOccupancy: number) => {
@@ -176,10 +180,12 @@ export function RoomCard({ room }: RoomCardProps) {
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
           <span>{room.name}</span>
-          <Switch
-            checked={room.isOpen}
-            onCheckedChange={(checked) => updateStatus.mutate(checked)}
-          />
+          {canManageStatus && (
+            <Switch
+              checked={room.isOpen}
+              onCheckedChange={(checked) => updateStatus.mutate(checked)}
+            />
+          )}
         </CardTitle>
       </CardHeader>
       <CardContent>
