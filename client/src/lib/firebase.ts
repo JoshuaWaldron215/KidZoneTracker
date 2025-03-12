@@ -33,19 +33,47 @@ onMessage(messaging, (payload) => {
 
 export async function requestNotificationPermission() {
   try {
-    const permission = await Notification.requestPermission();
-    if (permission === "granted") {
-      // Get FCM token
-      const token = await getToken(messaging, {
-        vapidKey: "BJYXgI6RsrKYze6d3QZh9-Oc8X0RB-yL_wSehAKXtfm4tBZxyqWm4jTvYk9CHn5dx4LuGHd5_C6k0YP3y4Ge0Ug" // Replace with your VAPID key
-      });
-      
-      console.log('FCM Token:', token);
-      return token;
+    // First, check if the browser supports notifications
+    if (!("Notification" in window)) {
+      console.error('This browser does not support notifications');
+      return null;
     }
+
+    // Check if service worker is registered
+    if (!('serviceWorker' in navigator)) {
+      console.error('Service Worker not supported');
+      return null;
+    }
+
+    // Register service worker if not already registered
+    const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
+      scope: '/',
+      type: 'module'
+    });
+    console.log('Service Worker registered successfully:', registration);
+
+    // Request notification permission
+    const permission = await Notification.requestPermission();
+    console.log('Notification permission:', permission);
+
+    if (permission === "granted") {
+      try {
+        // Get FCM token
+        const token = await getToken(messaging, {
+          vapidKey: "BJYXgI6RsrKYze6d3QZh9-Oc8X0RB-yL_wSehAKXtfm4tBZxyqWm4jTvYk9CHn5dx4LuGHd5_C6k0YP3y4Ge0Ug"
+        });
+
+        console.log('FCM Token obtained:', token ? 'Yes' : 'No');
+        return token;
+      } catch (tokenError) {
+        console.error('Error getting FCM token:', tokenError);
+        return null;
+      }
+    }
+
     return null;
   } catch (error) {
-    console.error('Failed to get FCM token:', error);
+    console.error('Failed to setup notifications:', error);
     return null;
   }
 }

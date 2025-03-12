@@ -16,19 +16,48 @@ export function useNotifications() {
     return 'Notification' in window && 'serviceWorker' in navigator;
   };
 
+  // Initialize notifications status
+  useEffect(() => {
+    const checkNotificationStatus = async () => {
+      if (!isSupported()) return;
+
+      const permission = Notification.permission;
+      if (permission === 'granted') {
+        // Try to get existing FCM token
+        try {
+          const token = await requestNotificationPermission();
+          if (token) {
+            setFcmToken(token);
+            setIsEnabled(true);
+            // Load subscribed rooms from localStorage
+            const savedRooms = localStorage.getItem('subscribedRooms');
+            if (savedRooms) {
+              setSubscribedRooms(JSON.parse(savedRooms));
+            }
+          }
+        } catch (error) {
+          console.error('Error initializing notifications:', error);
+        }
+      }
+    };
+
+    checkNotificationStatus();
+  }, []);
+
   // Request notification permissions and FCM token
   const requestPermission = async () => {
     try {
       if (!isSupported()) {
         toast({
           title: "Notifications Not Supported",
-          description: "Your device doesn't support notifications. We'll show updates in the app instead.",
+          description: "Your browser doesn't support notifications. We'll show updates in the app instead.",
           variant: "destructive",
         });
         return false;
       }
 
       const token = await requestNotificationPermission();
+      console.log('FCM Token received:', !!token);
 
       if (token) {
         setFcmToken(token);
@@ -38,11 +67,16 @@ export function useNotifications() {
         if (savedRooms) {
           setSubscribedRooms(JSON.parse(savedRooms));
         }
+        toast({
+          title: "Notifications Enabled",
+          description: "You'll receive updates about room capacity changes",
+          duration: 3000,
+        });
         return true;
       } else {
         toast({
           title: "Notifications Disabled",
-          description: "Please enable notifications to receive updates about room capacity",
+          description: "Please enable notifications in your browser settings to receive updates",
           variant: "destructive",
         });
         return false;
