@@ -26,6 +26,7 @@ export default function StaffManagement() {
     mutationFn: async () => {
       console.log('Sending staff creation request:', {
         username: newUsername,
+        password: newPassword,
         role: selectedRole,
         isStaff: true,
       });
