@@ -242,5 +242,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Add new route for deleting staff members
+  app.delete("/api/users/:id", authenticateUser, requireRole(['admin']), async (req, res) => {
+    try {
+      const userId = parseInt(req.params.id);
+
+      // Prevent deleting the last admin
+      const users = await storage.getUsers();
+      const admins = users.filter(u => u.role === 'admin');
+      const targetUser = users.find(u => u.id === userId);
+
+      if (!targetUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      if (targetUser.role === 'admin' && admins.length <= 1) {
+        return res.status(400).json({ message: "Cannot delete the last admin account" });
+      }
+
+      await storage.deleteUser(userId);
+      res.json({ message: "User deleted successfully" });
+    } catch (error) {
+      console.error('Failed to delete user:', error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
   return httpServer;
 }

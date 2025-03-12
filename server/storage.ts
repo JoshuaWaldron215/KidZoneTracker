@@ -9,7 +9,8 @@ export interface IStorage {
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
-  getUsers(): Promise<User[]>; // Added getUsers method
+  getUsers(): Promise<User[]>;
+  deleteUser(id: number): Promise<void>; // Added deleteUser method
 
   // Room operations
   getRooms(): Promise<Room[]>;
@@ -41,8 +42,12 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async getUsers(): Promise<User[]> { // Added getUsers method implementation
+  async getUsers(): Promise<User[]> { 
     return await db.select().from(users);
+  }
+
+  async deleteUser(id: number): Promise<void> {
+    await db.delete(users).where(eq(users.id, id));
   }
 
   // Room operations

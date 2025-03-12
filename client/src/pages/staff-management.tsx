@@ -67,6 +67,35 @@ export default function StaffManagement() {
     },
   });
 
+  const deleteStaff = useMutation({
+    mutationFn: async (userId: number) => {
+      await apiRequest(
+        "DELETE",
+        `/api/users/${userId}`,
+        undefined,
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        }
+      );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      toast({
+        title: "Success",
+        description: "Staff member deleted successfully",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to delete staff member",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newUsername || !newPassword) {
@@ -78,6 +107,12 @@ export default function StaffManagement() {
       return;
     }
     createStaff.mutate();
+  };
+
+  const handleDelete = (userId: number, username: string) => {
+    if (window.confirm(`Are you sure you want to delete ${username}?`)) {
+      deleteStaff.mutate(userId);
+    }
   };
 
   if (!hasPermission(["admin"])) {
@@ -161,6 +196,13 @@ export default function StaffManagement() {
                       <p className="font-medium">{staff.username}</p>
                       <p className="text-sm text-muted-foreground capitalize">{staff.role}</p>
                     </div>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => handleDelete(staff.id, staff.username)}
+                    >
+                      Delete
+                    </Button>
                   </div>
                 ))}
               </div>
