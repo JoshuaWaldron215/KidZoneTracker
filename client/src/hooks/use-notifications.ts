@@ -4,6 +4,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 
 export function useNotifications() {
   const [isEnabled, setIsEnabled] = useState(false);
+  const [subscribedRooms, setSubscribedRooms] = useState<number[]>([]);
   const { toast } = useToast();
   const isMobile = useIsMobile();
 
@@ -32,10 +33,11 @@ export function useNotifications() {
           const registration = await navigator.serviceWorker.register('/service-worker.js');
           permission = await Notification.requestPermission();
           if (permission === 'granted') {
-            await registration.pushManager.subscribe({
-              userVisibleOnly: true,
-              applicationServerKey: process.env.VITE_VAPID_PUBLIC_KEY
-            });
+            // Load subscribed rooms from localStorage
+            const savedRooms = localStorage.getItem('subscribedRooms');
+            if (savedRooms) {
+              setSubscribedRooms(JSON.parse(savedRooms));
+            }
           }
         } else {
           permission = await Notification.requestPermission();
@@ -52,7 +54,7 @@ export function useNotifications() {
         title: enabled ? "Notifications Enabled" : "Notifications Disabled",
         description: enabled 
           ? "You'll receive updates about room availability" 
-          : "Please enable notifications in your browser settings to receive updates",
+          : "Please enable notifications to receive updates about room capacity",
         variant: enabled ? "default" : "destructive",
       });
 
@@ -68,12 +70,38 @@ export function useNotifications() {
     }
   };
 
+  // Subscribe to a room's notifications
+  const subscribeToRoom = (roomId: number) => {
+    const newSubscriptions = [...subscribedRooms, roomId];
+    setSubscribedRooms(newSubscriptions);
+    localStorage.setItem('subscribedRooms', JSON.stringify(newSubscriptions));
+
+    toast({
+      title: "Subscribed",
+      description: "You'll receive notifications when this room's capacity changes",
+      duration: 3000,
+    });
+  };
+
+  // Unsubscribe from a room's notifications
+  const unsubscribeFromRoom = (roomId: number) => {
+    const newSubscriptions = subscribedRooms.filter(id => id !== roomId);
+    setSubscribedRooms(newSubscriptions);
+    localStorage.setItem('subscribedRooms', JSON.stringify(newSubscriptions));
+
+    toast({
+      title: "Unsubscribed",
+      description: "You won't receive notifications for this room anymore",
+      duration: 3000,
+    });
+  };
+
   // Show a notification
   const showNotification = (title: string, options?: NotificationOptions) => {
     if (!isEnabled) return;
 
     if (isMobile) {
-      // Always show toast on mobile for better visibility
+      // Show toast on mobile for immediate feedback
       toast({
         title,
         description: options?.body,
@@ -83,14 +111,26 @@ export function useNotifications() {
 
     // If notifications are supported and enabled, show native notification
     if (isSupported() && Notification.permission === 'granted') {
-      new Notification(title, options);
+      const notification = new Notification(title, {
+        ...options,
+        requireInteraction: !isMobile, // Don't require interaction on mobile
+        icon: "/icon-192.png",
+      });
+
+      // Auto-close on mobile after 3 seconds
+      if (isMobile) {
+        setTimeout(() => notification.close(), 3000);
+      }
     }
   };
 
   return {
     isSupported: isSupported(),
     isEnabled,
+    subscribedRooms,
     requestPermission,
+    subscribeToRoom,
+    unsubscribeFromRoom,
     showNotification
   };
 }

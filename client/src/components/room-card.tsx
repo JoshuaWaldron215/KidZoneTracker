@@ -7,6 +7,8 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
+import { useNotifications } from "@/hooks/use-notifications";
+import { Bell, BellOff } from "lucide-react";
 import type { Room } from "@shared/schema";
 
 interface RoomCardProps {
@@ -18,8 +20,17 @@ export function RoomCard({ room }: RoomCardProps) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { role } = useAuth();
+  const { 
+    isSupported, 
+    isEnabled, 
+    subscribedRooms, 
+    requestPermission, 
+    subscribeToRoom, 
+    unsubscribeFromRoom 
+  } = useNotifications();
 
   const canManageStatus = ['admin', 'supervisor'].includes(role || '');
+  const isSubscribed = subscribedRooms.includes(room.id);
 
   const updateOccupancy = useMutation({
     mutationFn: async (newOccupancy: number) => {
@@ -61,15 +72,6 @@ export function RoomCard({ room }: RoomCardProps) {
           variant: "destructive",
           duration: 5000,
         });
-
-        // Show browser notification if enabled
-        if ("Notification" in window && Notification.permission === "granted") {
-          new Notification("KidZone Room Full", {
-            body: `${room.name} has reached full capacity`,
-            icon: "/favicon.ico",
-            requireInteraction: true
-          });
-        }
       } else if (wasFull && !isFull) {
         // Room just opened up
         toast({
@@ -78,15 +80,6 @@ export function RoomCard({ room }: RoomCardProps) {
           variant: "default",
           duration: 5000,
         });
-
-        // Show browser notification if enabled
-        if ("Notification" in window && Notification.permission === "granted") {
-          new Notification("KidZone Space Available", {
-            body: `${room.name} now has spots available`,
-            icon: "/favicon.ico",
-            requireInteraction: true
-          });
-        }
       } else {
         // Regular update
         toast({
@@ -175,11 +168,48 @@ export function RoomCard({ room }: RoomCardProps) {
     updateOccupancy.mutate(newOccupancy);
   };
 
+  const handleNotificationToggle = async () => {
+    if (!isEnabled) {
+      const enabled = await requestPermission();
+      if (enabled) {
+        subscribeToRoom(room.id);
+      }
+    } else {
+      if (isSubscribed) {
+        unsubscribeFromRoom(room.id);
+      } else {
+        subscribeToRoom(room.id);
+      }
+    }
+  };
+
+  const isFull = room.currentOccupancy >= room.maxCapacity;
+  const spotsRemaining = room.maxCapacity - room.currentOccupancy;
+
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
-          <span>{room.name}</span>
+          <span className="flex items-center gap-2">
+            {room.name}
+            {isSupported && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="ml-2"
+                onClick={handleNotificationToggle}
+              >
+                {isSubscribed ? (
+                  <Bell className="h-4 w-4 text-primary" />
+                ) : (
+                  <BellOff className="h-4 w-4 text-muted-foreground" />
+                )}
+                <span className="sr-only">
+                  {isSubscribed ? "Unsubscribe from notifications" : "Subscribe to notifications"}
+                </span>
+              </Button>
+            )}
+          </span>
           {canManageStatus && (
             <Switch
               checked={room.isOpen}
@@ -189,18 +219,25 @@ export function RoomCard({ room }: RoomCardProps) {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit} className="flex gap-2">
-          <Input
-            type="number"
-            min="0"
-            max={room.maxCapacity}
-            value={occupancy}
-            onChange={(e) => setOccupancy(e.target.value)}
-          />
-          <Button type="submit" disabled={updateOccupancy.isPending}>
-            Update
-          </Button>
-        </form>
+        <div className="mb-4">
+          <p className={`text-sm font-medium ${isFull ? 'text-destructive' : 'text-primary'}`}>
+            {isFull ? 'FULL' : `${spotsRemaining} spot${spotsRemaining !== 1 ? 's' : ''} remaining`}
+          </p>
+        </div>
+        {role && (
+          <form onSubmit={handleSubmit} className="flex gap-2">
+            <Input
+              type="number"
+              min="0"
+              max={room.maxCapacity}
+              value={occupancy}
+              onChange={(e) => setOccupancy(e.target.value)}
+            />
+            <Button type="submit" disabled={updateOccupancy.isPending}>
+              Update
+            </Button>
+          </form>
+        )}
       </CardContent>
     </Card>
   );
