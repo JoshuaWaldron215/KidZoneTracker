@@ -203,11 +203,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Add new route for managing staff
   app.post("/api/users", authenticateUser, requireRole(['admin']), async (req, res) => {
     try {
+      console.log('Creating new user with data:', {
+        ...req.body,
+        password: '[REDACTED]'
+      });
+
       const data = insertUserSchema.parse(req.body);
-      const user = await storage.createUser(data);
-      res.json(user);
+
+      // Hash the password before creating the user
+      const hashedPassword = bcrypt.hashSync(data.password, 10);
+
+      const user = await storage.createUser({
+        ...data,
+        password: hashedPassword,
+      });
+
+      // Remove password from response
+      const { password, ...safeUser } = user;
+      res.json(safeUser);
     } catch (error) {
-      res.status(400).json({ message: "Invalid request" });
+      console.error('Failed to create user:', error);
+      res.status(400).json({ 
+        message: "Invalid request", 
+        details: error instanceof Error ? error.message : undefined 
+      });
     }
   });
 

@@ -24,6 +24,12 @@ export default function StaffManagement() {
 
   const createStaff = useMutation({
     mutationFn: async () => {
+      console.log('Sending staff creation request:', {
+        username: newUsername,
+        role: selectedRole,
+        isStaff: true,
+      });
+
       const response = await apiRequest(
         "POST",
         "/api/users",
@@ -52,6 +58,7 @@ export default function StaffManagement() {
       });
     },
     onError: (error) => {
+      console.error('Staff creation error:', error);
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to create staff member",
