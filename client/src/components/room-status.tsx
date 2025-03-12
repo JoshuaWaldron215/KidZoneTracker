@@ -50,8 +50,8 @@ export function RoomStatus({ room }: RoomStatusProps) {
   };
 
   useEffect(() => {
-    // Show notifications when occupancy changes for subscribed rooms
-    if (isSubscribed && prevOccupancyRef.current !== room.currentOccupancy) {
+    // Only show notifications if room is subscribed AND notifications are enabled
+    if (isSubscribed && isEnabled && prevOccupancyRef.current !== room.currentOccupancy) {
       // Calculate spots remaining
       const spotsRemaining = room.maxCapacity - room.currentOccupancy;
       const message = room.currentOccupancy >= room.maxCapacity 
@@ -65,9 +65,13 @@ export function RoomStatus({ room }: RoomStatusProps) {
         variant: room.currentOccupancy >= room.maxCapacity ? "destructive" : "default",
       });
 
+      // Save the current occupancy after showing notification
+      prevOccupancyRef.current = room.currentOccupancy;
+    } else if (!isSubscribed) {
+      // Reset the previous occupancy when unsubscribed
       prevOccupancyRef.current = room.currentOccupancy;
     }
-  }, [room.currentOccupancy, room.maxCapacity, room.name, isSubscribed, toast]);
+  }, [room.currentOccupancy, room.maxCapacity, room.name, isSubscribed, isEnabled, toast]);
 
   return (
     <Card>
