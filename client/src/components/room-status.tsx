@@ -93,7 +93,7 @@ export function RoomStatus({ room }: RoomStatusProps) {
         </div>
         <Progress 
           value={occupancyPercentage} 
-          className={`mt-3 ${statusColor}`}
+          className={`mt-3 ${statusColor} transition-all duration-500`}
         />
       </CardContent>
     </Card>
