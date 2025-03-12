@@ -21,11 +21,15 @@ export function useNotifications() {
     const checkNotificationStatus = async () => {
       if (!isSupported()) return;
 
+      console.log('Checking notification status...');
       const permission = Notification.permission;
+      console.log('Current permission:', permission);
+
       if (permission === 'granted') {
         // Try to get existing FCM token
         try {
           const token = await requestNotificationPermission();
+          console.log('Got FCM token:', !!token);
           if (token) {
             setFcmToken(token);
             setIsEnabled(true);
@@ -47,6 +51,7 @@ export function useNotifications() {
   // Request notification permissions and FCM token
   const requestPermission = async () => {
     try {
+      console.log('Starting permission request...');
       if (!isSupported()) {
         toast({
           title: "Notifications Not Supported",
@@ -100,6 +105,7 @@ export function useNotifications() {
     }
 
     try {
+      console.log('Subscribing to room:', roomId);
       // Send subscription to backend
       await apiRequest('POST', '/api/notifications/subscribe', {
         roomId,
@@ -133,6 +139,7 @@ export function useNotifications() {
     }
 
     try {
+      console.log('Unsubscribing from room:', roomId);
       // Send unsubscription to backend
       await apiRequest('POST', '/api/notifications/unsubscribe', {
         roomId,

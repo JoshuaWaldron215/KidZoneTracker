@@ -35,17 +35,28 @@ export function RoomStatus({ room }: RoomStatusProps) {
   }
 
   const handleNotificationToggle = async () => {
-    if (!isEnabled) {
-      const enabled = await requestPermission();
-      if (enabled) {
-        subscribeToRoom(room.id);
-      }
-    } else {
-      if (isSubscribed) {
-        unsubscribeFromRoom(room.id);
+    try {
+      if (!isEnabled) {
+        console.log('Requesting notification permission...');
+        const enabled = await requestPermission();
+        console.log('Permission request result:', enabled);
+        if (enabled) {
+          await subscribeToRoom(room.id);
+        }
       } else {
-        subscribeToRoom(room.id);
+        if (isSubscribed) {
+          await unsubscribeFromRoom(room.id);
+        } else {
+          await subscribeToRoom(room.id);
+        }
       }
+    } catch (error) {
+      console.error('Error handling notification toggle:', error);
+      toast({
+        title: "Error",
+        description: "Failed to manage notifications. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
