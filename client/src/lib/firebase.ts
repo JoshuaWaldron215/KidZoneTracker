@@ -33,51 +33,59 @@ onMessage(messaging, (payload) => {
 
 export async function requestNotificationPermission() {
   try {
-    // First, check if service worker is already registered
-    let swRegistration;
-    const registrations = await navigator.serviceWorker.getRegistrations();
-    const existingRegistration = registrations.find(reg => reg.scope.includes('/'));
-
-    if (existingRegistration) {
-      console.log('Using existing service worker registration');
-      swRegistration = existingRegistration;
-    } else {
-      console.log('Registering new service worker');
-      swRegistration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
-        scope: '/'
-      });
+    // Check browser support
+    if (!("Notification" in window)) {
+      console.error('Browser does not support notifications');
+      return null;
     }
 
-    // Now request notification permission
-    console.log('Requesting notification permission...');
-    const permission = await Notification.requestPermission();
-    console.log('Notification permission result:', permission);
+    // Request permission directly first
+    const permissionResult = await Notification.requestPermission();
+    console.log('Permission request result:', permissionResult);
 
-    if (permission === 'granted') {
-      try {
-        console.log('Getting FCM token with registration:', swRegistration);
-        const currentToken = await getToken(messaging, {
-          vapidKey: "BJYXgI6RsrKYze6d3QZh9-Oc8X0RB-yL_wSehAKXtfm4tBZxyqWm4jTvYk9CHn5dx4LuGHd5_C6k0YP3y4Ge0Ug",
-          serviceWorkerRegistration: swRegistration
-        });
+    if (permissionResult !== 'granted') {
+      console.log('Permission not granted');
+      return null;
+    }
 
-        if (currentToken) {
-          console.log('Successfully obtained FCM token');
-          return currentToken;
-        } else {
-          console.error('Failed to obtain FCM token');
-          return null;
-        }
-      } catch (tokenError) {
-        console.error('Error getting FCM token:', tokenError);
+    // Only proceed with service worker registration if permission granted
+    if (!('serviceWorker' in navigator)) {
+      console.error('Service Worker not supported');
+      return null;
+    }
+
+    // Register or get existing service worker
+    let swRegistration;
+    try {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      swRegistration = registrations.find(reg => reg.scope.includes('/'));
+
+      if (!swRegistration) {
+        swRegistration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+        console.log('New service worker registered');
+      } else {
+        console.log('Using existing service worker');
+      }
+
+      // Get FCM token with the service worker
+      const currentToken = await getToken(messaging, {
+        vapidKey: "BJYXgI6RsrKYze6d3QZh9-Oc8X0RB-yL_wSehAKXtfm4tBZxyqWm4jTvYk9CHn5dx4LuGHd5_C6k0YP3y4Ge0Ug",
+        serviceWorkerRegistration: swRegistration
+      });
+
+      if (currentToken) {
+        console.log('FCM token obtained');
+        return currentToken;
+      } else {
+        console.error('No FCM token received');
         return null;
       }
-    } else {
-      console.log('Notification permission denied');
+    } catch (error) {
+      console.error('Error during service worker registration:', error);
       return null;
     }
   } catch (error) {
-    console.error('Error in requestNotificationPermission:', error);
+    console.error('Error requesting notification permission:', error);
     return null;
   }
 }
