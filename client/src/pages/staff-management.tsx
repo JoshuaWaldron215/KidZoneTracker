@@ -24,22 +24,22 @@ export default function StaffManagement() {
 
   const createStaff = useMutation({
     mutationFn: async () => {
-      console.log('Sending staff creation request:', {
+      const staffData = {
         username: newUsername,
         password: newPassword,
-        role: selectedRole,
         isStaff: true,
+        role: selectedRole,
+      };
+
+      console.log('Sending staff creation request:', {
+        ...staffData,
+        password: '[REDACTED]'
       });
 
       const response = await apiRequest(
         "POST",
         "/api/users",
-        {
-          username: newUsername,
-          password: newPassword,
-          isStaff: true,
-          role: selectedRole,
-        },
+        staffData,
         {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("token")}`,
