@@ -24,6 +24,13 @@ export async function sendEmail(to: string, subject: string, text: string) {
       html: `<div>${text}</div>`
     };
 
+    console.log('Attempting to send email:', {
+      to,
+      subject,
+      fromEmail,
+      timestamp: new Date().toISOString()
+    });
+
     await mailService.send(msg);
     console.log('Email sent successfully to:', to);
   } catch (error: any) {
