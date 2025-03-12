@@ -8,7 +8,7 @@ import type { Room } from "@shared/schema";
 
 export default function Dashboard() {
   const [, setLocation] = useLocation();
-  const { clearAuth, role } = useAuth();
+  const { clearAuth, role, hasPermission } = useAuth();
 
   useEffect(() => {
     if (!localStorage.getItem("token")) {
@@ -39,6 +39,11 @@ export default function Dashboard() {
             <p className="text-muted-foreground">Logged in as {role}</p>
           </div>
           <div className="flex gap-4">
+            {hasPermission(["admin"]) && (
+              <Button variant="outline" onClick={() => setLocation("/staff")}>
+                Manage Staff
+              </Button>
+            )}
             <Button variant="secondary" onClick={() => setLocation("/")}>
               View Public Page
             </Button>

@@ -211,5 +211,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Add this route after the other routes
+  app.get("/api/users", authenticateUser, requireRole(['admin']), async (req, res) => {
+    try {
+      const users = await storage.getUsers();
+      // Don't send password hashes to the client
+      const safeUsers = users.map(({ password, ...user }) => user);
+      res.json(safeUsers);
+    } catch (error) {
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
   return httpServer;
 }
