@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
+import { useLocation } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,6 +17,7 @@ export default function StaffManagement() {
   const { hasPermission } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [, setLocation] = useLocation();
 
   const { data: staffMembers = [], isLoading } = useQuery<User[]>({
     queryKey: ["/api/users"],
@@ -138,7 +140,17 @@ export default function StaffManagement() {
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto py-10">
-        <h1 className="text-4xl font-bold mb-8">Staff Management</h1>
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-4xl font-bold">Staff Management</h1>
+          <div className="flex gap-4">
+            <Button variant="outline" onClick={() => setLocation("/dashboard")}>
+              Back to Dashboard
+            </Button>
+            <Button variant="secondary" onClick={() => setLocation("/")}>
+              View Public Page
+            </Button>
+          </div>
+        </div>
 
         <div className="grid gap-6 md:grid-cols-2">
           {/* New Staff Form */}
