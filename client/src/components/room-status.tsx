@@ -1,9 +1,11 @@
-import { AlertCircle, Users } from "lucide-react";
+import { AlertCircle, Users, Bell, BellOff } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { Button } from "@/components/ui/button";
 import { useEffect, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useNotifications } from "@/hooks/use-notifications";
 import type { Room } from "@shared/schema";
 
 interface RoomStatusProps {
@@ -13,8 +15,17 @@ interface RoomStatusProps {
 export function RoomStatus({ room }: RoomStatusProps) {
   const { toast } = useToast();
   const isMobile = useIsMobile();
+  const { 
+    isSupported, 
+    isEnabled, 
+    subscribedRooms, 
+    requestPermission, 
+    subscribeToRoom, 
+    unsubscribeFromRoom 
+  } = useNotifications();
   const prevOccupancyRef = useRef(room.currentOccupancy);
   const occupancyPercentage = (room.currentOccupancy / room.maxCapacity) * 100;
+  const isSubscribed = subscribedRooms.includes(room.id);
 
   let statusColor = "bg-green-500";
   if (occupancyPercentage >= 90) {
@@ -23,62 +34,63 @@ export function RoomStatus({ room }: RoomStatusProps) {
     statusColor = "bg-yellow-500";
   }
 
-  useEffect(() => {
-    // Show notifications when occupancy changes
-    if (prevOccupancyRef.current !== room.currentOccupancy) {
-      console.log('Occupancy changed:', {
-        room: room.name,
-        previous: prevOccupancyRef.current,
-        current: room.currentOccupancy,
-        maxCapacity: room.maxCapacity,
-        isMobile
-      });
+  const handleNotificationToggle = async () => {
+    if (!isEnabled) {
+      const enabled = await requestPermission();
+      if (enabled) {
+        subscribeToRoom(room.id);
+      }
+    } else {
+      if (isSubscribed) {
+        unsubscribeFromRoom(room.id);
+      } else {
+        subscribeToRoom(room.id);
+      }
+    }
+  };
 
-      // Always show toast notification for any change
+  useEffect(() => {
+    // Show notifications when occupancy changes for subscribed rooms
+    if (isSubscribed && prevOccupancyRef.current !== room.currentOccupancy) {
+      // Calculate spots remaining
       const spotsRemaining = room.maxCapacity - room.currentOccupancy;
       const message = room.currentOccupancy >= room.maxCapacity 
         ? `${room.name} is now FULL`
         : `${room.name}: ${spotsRemaining} spot${spotsRemaining !== 1 ? 's' : ''} remaining`;
 
-      console.log('Showing notification:', message);
-
-      // Always show toast
+      // Show toast
       toast({
         title: room.name,
         description: message,
         variant: room.currentOccupancy >= room.maxCapacity ? "destructive" : "default",
       });
 
-      // Try browser notification if supported and enabled
-      try {
-        if ("Notification" in window && Notification.permission === "granted") {
-          const notification = new Notification("KidZone Status Update", {
-            body: message,
-            icon: "/favicon.ico",
-            tag: room.id.toString(), // Prevent duplicate notifications
-            vibrate: isMobile ? [200, 100, 200] : undefined // Vibrate on mobile
-          });
-
-          // Clear notification after 5 seconds on mobile
-          if (isMobile) {
-            setTimeout(() => notification.close(), 5000);
-          }
-
-          console.log('Browser notification sent');
-        }
-      } catch (error) {
-        console.error('Failed to show browser notification:', error);
-      }
-
       prevOccupancyRef.current = room.currentOccupancy;
     }
-  }, [room.currentOccupancy, room.maxCapacity, room.name, room.id, toast, isMobile]);
+  }, [room.currentOccupancy, room.maxCapacity, room.name, isSubscribed, toast]);
 
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium">
+        <CardTitle className="text-sm font-medium flex items-center gap-2">
           {room.name}
+          {isSupported && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="ml-2"
+              onClick={handleNotificationToggle}
+            >
+              {isSubscribed ? (
+                <Bell className="h-4 w-4 text-primary" />
+              ) : (
+                <BellOff className="h-4 w-4 text-muted-foreground" />
+              )}
+              <span className="sr-only">
+                {isSubscribed ? "Unsubscribe from notifications" : "Get notified when capacity changes"}
+              </span>
+            </Button>
+          )}
         </CardTitle>
         {!room.isOpen && (
           <AlertCircle className="h-4 w-4 text-muted-foreground" />

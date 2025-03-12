@@ -7,8 +7,6 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
-import { useNotifications } from "@/hooks/use-notifications";
-import { Bell, BellOff } from "lucide-react";
 import type { Room } from "@shared/schema";
 
 interface RoomCardProps {
@@ -20,26 +18,11 @@ export function RoomCard({ room }: RoomCardProps) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { role } = useAuth();
-  const { 
-    isSupported, 
-    isEnabled, 
-    subscribedRooms, 
-    requestPermission, 
-    subscribeToRoom, 
-    unsubscribeFromRoom 
-  } = useNotifications();
 
   const canManageStatus = ['admin', 'supervisor'].includes(role || '');
-  const isSubscribed = subscribedRooms.includes(room.id);
 
   const updateOccupancy = useMutation({
     mutationFn: async (newOccupancy: number) => {
-      console.log('Updating occupancy:', {
-        room: room.name,
-        current: room.currentOccupancy,
-        new: newOccupancy
-      });
-
       const token = localStorage.getItem("token");
       if (!token) throw new Error("Not authenticated");
 
@@ -57,37 +40,13 @@ export function RoomCard({ room }: RoomCardProps) {
 
       return response.json();
     },
-    onSuccess: (updatedRoom) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/rooms"] });
-
-      // Show immediate feedback based on room status
-      const isFull = updatedRoom.currentOccupancy >= updatedRoom.maxCapacity;
-      const wasFull = room.currentOccupancy >= room.maxCapacity;
-
-      if (!wasFull && isFull) {
-        // Room just became full
-        toast({
-          title: "Room Full Alert",
-          description: `${room.name} is now at full capacity`,
-          variant: "destructive",
-          duration: 5000,
-        });
-      } else if (wasFull && !isFull) {
-        // Room just opened up
-        toast({
-          title: "Space Available",
-          description: `${room.name} now has spots available`,
-          variant: "default",
-          duration: 5000,
-        });
-      } else {
-        // Regular update
-        toast({
-          title: "Update Successful",
-          description: `${room.name} occupancy updated to ${updatedRoom.currentOccupancy}/${updatedRoom.maxCapacity}`,
-          duration: 3000,
-        });
-      }
+      toast({
+        title: "Success",
+        description: `Updated ${room.name} occupancy`,
+        duration: 3000,
+      });
     },
     onError: (error) => {
       console.error('Failed to update occupancy:', error);
@@ -168,21 +127,6 @@ export function RoomCard({ room }: RoomCardProps) {
     updateOccupancy.mutate(newOccupancy);
   };
 
-  const handleNotificationToggle = async () => {
-    if (!isEnabled) {
-      const enabled = await requestPermission();
-      if (enabled) {
-        subscribeToRoom(room.id);
-      }
-    } else {
-      if (isSubscribed) {
-        unsubscribeFromRoom(room.id);
-      } else {
-        subscribeToRoom(room.id);
-      }
-    }
-  };
-
   const isFull = room.currentOccupancy >= room.maxCapacity;
   const spotsRemaining = room.maxCapacity - room.currentOccupancy;
 
@@ -190,26 +134,7 @@ export function RoomCard({ room }: RoomCardProps) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
-          <span className="flex items-center gap-2">
-            {room.name}
-            {isSupported && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="ml-2"
-                onClick={handleNotificationToggle}
-              >
-                {isSubscribed ? (
-                  <Bell className="h-4 w-4 text-primary" />
-                ) : (
-                  <BellOff className="h-4 w-4 text-muted-foreground" />
-                )}
-                <span className="sr-only">
-                  {isSubscribed ? "Unsubscribe from notifications" : "Subscribe to notifications"}
-                </span>
-              </Button>
-            )}
-          </span>
+          <span>{room.name}</span>
           {canManageStatus && (
             <Switch
               checked={room.isOpen}
@@ -224,20 +149,18 @@ export function RoomCard({ room }: RoomCardProps) {
             {isFull ? 'FULL' : `${spotsRemaining} spot${spotsRemaining !== 1 ? 's' : ''} remaining`}
           </p>
         </div>
-        {role && (
-          <form onSubmit={handleSubmit} className="flex gap-2">
-            <Input
-              type="number"
-              min="0"
-              max={room.maxCapacity}
-              value={occupancy}
-              onChange={(e) => setOccupancy(e.target.value)}
-            />
-            <Button type="submit" disabled={updateOccupancy.isPending}>
-              Update
-            </Button>
-          </form>
-        )}
+        <form onSubmit={handleSubmit} className="flex gap-2">
+          <Input
+            type="number"
+            min="0"
+            max={room.maxCapacity}
+            value={occupancy}
+            onChange={(e) => setOccupancy(e.target.value)}
+          />
+          <Button type="submit" disabled={updateOccupancy.isPending}>
+            Update
+          </Button>
+        </form>
       </CardContent>
     </Card>
   );
