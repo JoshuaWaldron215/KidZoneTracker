@@ -43,6 +43,14 @@ export const notifications = pgTable("notifications", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// Add new table for FCM subscriptions
+export const roomSubscriptions = pgTable("room_subscriptions", {
+  id: serial("id").primaryKey(),
+  roomId: integer("room_id").notNull(),
+  fcmToken: text("fcm_token").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 // Update schemas to include new fields
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
@@ -73,6 +81,12 @@ export const insertRoomHistorySchema = createInsertSchema(roomHistory).pick({
   newOccupancy: true,
 });
 
+// Add subscription schema
+export const insertRoomSubscriptionSchema = createInsertSchema(roomSubscriptions).pick({
+  roomId: true,
+  fcmToken: true,
+});
+
 export const loginSchema = z.object({
   username: z.string().min(1),
   password: z.string().min(1),
@@ -92,3 +106,5 @@ export type User = typeof users.$inferSelect;
 export type Room = typeof rooms.$inferSelect;
 export type Notification = typeof notifications.$inferSelect;
 export type RoomHistory = typeof roomHistory.$inferSelect;
+export type InsertRoomSubscription = z.infer<typeof insertRoomSubscriptionSchema>;
+export type RoomSubscription = typeof roomSubscriptions.$inferSelect;

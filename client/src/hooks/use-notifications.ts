@@ -1,19 +1,22 @@
 import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { requestNotificationPermission } from '@/lib/firebase';
+import { apiRequest } from '@/lib/queryClient';
 
 export function useNotifications() {
   const [isEnabled, setIsEnabled] = useState(false);
   const [subscribedRooms, setSubscribedRooms] = useState<number[]>([]);
+  const [fcmToken, setFcmToken] = useState<string | null>(null);
   const { toast } = useToast();
   const isMobile = useIsMobile();
 
   // Check if notifications are supported
   const isSupported = () => {
-    return 'Notification' in window || 'serviceWorker' in navigator;
+    return 'Notification' in window && 'serviceWorker' in navigator;
   };
 
-  // Request notification permissions
+  // Request notification permissions and FCM token
   const requestPermission = async () => {
     try {
       if (!isSupported()) {
@@ -25,40 +28,25 @@ export function useNotifications() {
         return false;
       }
 
-      let permission: NotificationPermission;
+      const token = await requestNotificationPermission();
 
-      if (isMobile) {
-        // For mobile, we'll use a combination of methods
-        if ('serviceWorker' in navigator) {
-          const registration = await navigator.serviceWorker.register('/service-worker.js');
-          permission = await Notification.requestPermission();
-          if (permission === 'granted') {
-            // Load subscribed rooms from localStorage
-            const savedRooms = localStorage.getItem('subscribedRooms');
-            if (savedRooms) {
-              setSubscribedRooms(JSON.parse(savedRooms));
-            }
-          }
-        } else {
-          permission = await Notification.requestPermission();
+      if (token) {
+        setFcmToken(token);
+        setIsEnabled(true);
+        // Load subscribed rooms from localStorage
+        const savedRooms = localStorage.getItem('subscribedRooms');
+        if (savedRooms) {
+          setSubscribedRooms(JSON.parse(savedRooms));
         }
+        return true;
       } else {
-        // Desktop notification flow
-        permission = await Notification.requestPermission();
+        toast({
+          title: "Notifications Disabled",
+          description: "Please enable notifications to receive updates about room capacity",
+          variant: "destructive",
+        });
+        return false;
       }
-
-      const enabled = permission === 'granted';
-      setIsEnabled(enabled);
-
-      toast({
-        title: enabled ? "Notifications Enabled" : "Notifications Disabled",
-        description: enabled 
-          ? "You'll receive updates about room availability" 
-          : "Please enable notifications to receive updates about room capacity",
-        variant: enabled ? "default" : "destructive",
-      });
-
-      return enabled;
     } catch (error) {
       console.error('Error requesting notification permission:', error);
       toast({
@@ -71,56 +59,68 @@ export function useNotifications() {
   };
 
   // Subscribe to a room's notifications
-  const subscribeToRoom = (roomId: number) => {
-    const newSubscriptions = [...subscribedRooms, roomId];
-    setSubscribedRooms(newSubscriptions);
-    localStorage.setItem('subscribedRooms', JSON.stringify(newSubscriptions));
+  const subscribeToRoom = async (roomId: number) => {
+    if (!fcmToken) {
+      console.error('No FCM token available');
+      return;
+    }
 
-    toast({
-      title: "Subscribed",
-      description: "You'll receive notifications when this room's capacity changes",
-      duration: 3000,
-    });
+    try {
+      // Send subscription to backend
+      await apiRequest('POST', '/api/notifications/subscribe', {
+        roomId,
+        token: fcmToken,
+      });
+
+      const newSubscriptions = [...subscribedRooms, roomId];
+      setSubscribedRooms(newSubscriptions);
+      localStorage.setItem('subscribedRooms', JSON.stringify(newSubscriptions));
+
+      toast({
+        title: "Subscribed",
+        description: "You'll receive notifications when this room's capacity changes",
+        duration: 3000,
+      });
+    } catch (error) {
+      console.error('Failed to subscribe to room:', error);
+      toast({
+        title: "Error",
+        description: "Failed to subscribe to notifications. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   // Unsubscribe from a room's notifications
-  const unsubscribeFromRoom = (roomId: number) => {
-    const newSubscriptions = subscribedRooms.filter(id => id !== roomId);
-    setSubscribedRooms(newSubscriptions);
-    localStorage.setItem('subscribedRooms', JSON.stringify(newSubscriptions));
-
-    toast({
-      title: "Unsubscribed",
-      description: "You won't receive notifications for this room anymore",
-      duration: 3000,
-    });
-  };
-
-  // Show a notification
-  const showNotification = (title: string, options?: NotificationOptions) => {
-    if (!isEnabled) return;
-
-    if (isMobile) {
-      // Show toast on mobile for immediate feedback
-      toast({
-        title,
-        description: options?.body,
-        variant: options?.tag === 'warning' ? 'destructive' : 'default',
-      });
+  const unsubscribeFromRoom = async (roomId: number) => {
+    if (!fcmToken) {
+      console.error('No FCM token available');
+      return;
     }
 
-    // If notifications are supported and enabled, show native notification
-    if (isSupported() && Notification.permission === 'granted') {
-      const notification = new Notification(title, {
-        ...options,
-        requireInteraction: !isMobile, // Don't require interaction on mobile
-        icon: "/icon-192.png",
+    try {
+      // Send unsubscription to backend
+      await apiRequest('POST', '/api/notifications/unsubscribe', {
+        roomId,
+        token: fcmToken,
       });
 
-      // Auto-close on mobile after 3 seconds
-      if (isMobile) {
-        setTimeout(() => notification.close(), 3000);
-      }
+      const newSubscriptions = subscribedRooms.filter(id => id !== roomId);
+      setSubscribedRooms(newSubscriptions);
+      localStorage.setItem('subscribedRooms', JSON.stringify(newSubscriptions));
+
+      toast({
+        title: "Unsubscribed",
+        description: "You won't receive notifications for this room anymore",
+        duration: 3000,
+      });
+    } catch (error) {
+      console.error('Failed to unsubscribe from room:', error);
+      toast({
+        title: "Error",
+        description: "Failed to unsubscribe from notifications. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -131,6 +131,5 @@ export function useNotifications() {
     requestPermission,
     subscribeToRoom,
     unsubscribeFromRoom,
-    showNotification
   };
 }

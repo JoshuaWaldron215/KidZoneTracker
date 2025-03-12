@@ -1,7 +1,7 @@
 import { db } from "./db";
-import { eq } from "drizzle-orm";
-import { users, rooms, notifications, roomHistory } from "@shared/schema";
-import type { InsertUser, InsertRoom, InsertNotification, InsertRoomHistory, User, Room, Notification } from "@shared/schema";
+import { eq, and } from "drizzle-orm";
+import { users, rooms, notifications, roomHistory, roomSubscriptions } from "@shared/schema";
+import type { InsertUser, InsertRoom, InsertNotification, InsertRoomHistory, User, Room, Notification, RoomSubscription } from "@shared/schema";
 import bcrypt from "bcryptjs";
 
 export interface IStorage {
@@ -10,7 +10,7 @@ export interface IStorage {
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   getUsers(): Promise<User[]>;
-  deleteUser(id: number): Promise<void>; // Added deleteUser method
+  deleteUser(id: number): Promise<void>;
 
   // Room operations
   getRooms(): Promise<Room[]>;
@@ -23,6 +23,11 @@ export interface IStorage {
   getNotifications(roomId: number): Promise<Notification[]>;
   createNotification(notification: InsertNotification): Promise<Notification>;
   deleteNotification(id: number): Promise<void>;
+
+  // FCM Subscription operations
+  getNotificationSubscriptions(roomId: number): Promise<string[]>;
+  addNotificationSubscription(roomId: number, token: string): Promise<void>;
+  removeNotificationSubscription(roomId: number, token: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -124,17 +129,44 @@ export class DatabaseStorage implements IStorage {
   async deleteNotification(id: number): Promise<void> {
     await db.delete(notifications).where(eq(notifications.id, id));
   }
+
+  // FCM Subscription operations
+  async getNotificationSubscriptions(roomId: number): Promise<string[]> {
+    const subscriptions = await db
+      .select()
+      .from(roomSubscriptions)
+      .where(eq(roomSubscriptions.roomId, roomId));
+
+    return subscriptions.map(sub => sub.fcmToken);
+  }
+
+  async addNotificationSubscription(roomId: number, token: string): Promise<void> {
+    await db
+      .insert(roomSubscriptions)
+      .values({ roomId, fcmToken: token })
+      .onConflictDoNothing();
+  }
+
+  async removeNotificationSubscription(roomId: number, token: string): Promise<void> {
+    await db
+      .delete(roomSubscriptions)
+      .where(
+        and(
+          eq(roomSubscriptions.roomId, roomId),
+          eq(roomSubscriptions.fcmToken, token)
+        )
+      );
+  }
 }
 
-// Initialize storage with default data
+// Initialize storage
 export const storage = new DatabaseStorage();
 
-// Insert default admin user if it doesn't exist
+// Initialize default data
 async function initializeDefaultData() {
   try {
     const adminUser = await storage.getUserByUsername("admin");
     if (!adminUser) {
-      // Hash the password before storing
       const hashedPassword = bcrypt.hashSync("admin123", 10);
       await storage.createUser({
         username: "admin",

@@ -6,6 +6,7 @@ import { loginSchema, updateOccupancySchema, insertNotificationSchema, insertUse
 import { sendRoomFullNotification, sendRoomAvailableNotification } from "./email";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
+import { sendNotification } from './firebase';
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret";
 
@@ -157,6 +158,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      // Send FCM notifications
+      const subscriptions = await storage.getNotificationSubscriptions(roomId);
+      for (const token of subscriptions) {
+        const message = occupancy >= room.maxCapacity
+          ? { 
+              title: "Room Full Alert",
+              body: `${room.name} is now at full capacity`,
+              roomId: room.id.toString()
+            }
+          : {
+              title: "Space Available",
+              body: `${room.name} now has ${room.maxCapacity - occupancy} spots available`,
+              roomId: room.id.toString()
+            };
+
+        await sendNotification(token, message);
+      }
+
+
       // Broadcast update to all connected clients
       await broadcastRoomUpdate();
 
@@ -196,6 +216,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(notification);
     } catch (error) {
       res.status(400).json({ message: "Invalid request" });
+    }
+  });
+
+  app.post("/api/notifications/subscribe", async (req, res) => {
+    try {
+      const { roomId, token } = req.body;
+
+      // Store subscription in database
+      await storage.addNotificationSubscription(roomId, token);
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Failed to subscribe to notifications:', error);
+      res.status(500).json({ message: "Failed to subscribe" });
+    }
+  });
+
+  app.post("/api/notifications/unsubscribe", async (req, res) => {
+    try {
+      const { roomId, token } = req.body;
+
+      // Remove subscription from database
+      await storage.removeNotificationSubscription(roomId, token);
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Failed to unsubscribe from notifications:', error);
+      res.status(500).json({ message: "Failed to unsubscribe" });
     }
   });
 
