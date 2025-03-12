@@ -8,12 +8,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import type { User } from "@shared/schema";
 
 export default function StaffManagement() {
   const [newUsername, setNewUsername] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [email, setEmail] = useState("");
   const [selectedRole, setSelectedRole] = useState("staff");
+  const [notifyOnFull, setNotifyOnFull] = useState(true);
+  const [notifyOnAvailable, setNotifyOnAvailable] = useState(true);
   const { hasPermission } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -31,6 +35,9 @@ export default function StaffManagement() {
         password: newPassword,
         isStaff: true,
         role: selectedRole,
+        email,
+        notifyOnFull,
+        notifyOnAvailable,
       };
 
       console.log('Sending staff creation request:', {
@@ -55,7 +62,10 @@ export default function StaffManagement() {
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
       setNewUsername("");
       setNewPassword("");
+      setEmail("");
       setSelectedRole("staff");
+      setNotifyOnFull(true);
+      setNotifyOnAvailable(true);
       toast({
         title: "Success",
         description: "Staff member created successfully",
@@ -102,7 +112,7 @@ export default function StaffManagement() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newUsername || !newPassword) {
+    if (!newUsername || !newPassword || !email) {
       toast({
         title: "Error",
         description: "Please fill in all fields",
@@ -176,6 +186,14 @@ export default function StaffManagement() {
                   />
                 </div>
                 <div>
+                  <Input
+                    type="email"
+                    placeholder="Email for notifications"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                  />
+                </div>
+                <div>
                   <Select value={selectedRole} onValueChange={setSelectedRole}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select role" />
@@ -186,6 +204,28 @@ export default function StaffManagement() {
                       <SelectItem value="admin">Admin</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="notify-full"
+                      checked={notifyOnFull}
+                      onCheckedChange={setNotifyOnFull}
+                    />
+                    <label htmlFor="notify-full">
+                      Notify when rooms reach capacity
+                    </label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="notify-available"
+                      checked={notifyOnAvailable}
+                      onCheckedChange={setNotifyOnAvailable}
+                    />
+                    <label htmlFor="notify-available">
+                      Notify when rooms become available
+                    </label>
+                  </div>
                 </div>
                 <Button type="submit" className="w-full" disabled={createStaff.isPending}>
                   {createStaff.isPending ? "Creating..." : "Create Staff Member"}

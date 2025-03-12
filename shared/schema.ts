@@ -8,6 +8,9 @@ export const users = pgTable("users", {
   password: text("password").notNull(),
   isStaff: boolean("is_staff").notNull().default(false),
   role: text("role").notNull().default('staff'), // 'admin', 'supervisor', or 'staff'
+  email: text("email"), // Add email field
+  notifyOnFull: boolean("notify_on_full").default(true),
+  notifyOnAvailable: boolean("notify_on_available").default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -46,6 +49,9 @@ export const insertUserSchema = createInsertSchema(users).pick({
   password: true,
   isStaff: true,
   role: true,
+  email: true,
+  notifyOnFull: true,
+  notifyOnAvailable: true,
 });
 
 export const insertRoomSchema = createInsertSchema(rooms).pick({

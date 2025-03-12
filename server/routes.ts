@@ -121,36 +121,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updatedRoom = await storage.updateRoomOccupancy(roomId, occupancy);
       const isFullNow = occupancy >= room.maxCapacity;
 
-      // Handle notifications
-      const notifications = await storage.getNotifications(roomId);
+      // Get all staff members with notification preferences
+      const staffMembers = await storage.getUsers();
       const otherRooms = (await storage.getRooms()).filter(r => r.id !== roomId && r.isOpen);
 
       if (!wasFullBefore && isFullNow) {
-        // Room just became full
-        for (const notification of notifications) {
-          if (notification.type === "FULL") {
+        // Room just became full - notify staff who want full notifications
+        for (const staff of staffMembers) {
+          if (staff.email && staff.notifyOnFull) {
             const message = otherRooms.length > 0 
               ? `The ${room.name} is now full. Other rooms are available: ${otherRooms.map(r => r.name).join(", ")}`
               : `The ${room.name} is now full. No other rooms are currently available.`;
 
             try {
-              await sendRoomFullNotification(notification.email, message);
+              await sendRoomFullNotification(staff.email, message);
             } catch (error) {
               console.error('Failed to send notification:', error);
             }
           }
         }
       } else if (wasFullBefore && !isFullNow) {
-        // Room just opened up
-        for (const notification of notifications) {
-          if (notification.type === "AVAILABLE") {
+        // Room just opened up - notify staff who want availability notifications
+        for (const staff of staffMembers) {
+          if (staff.email && staff.notifyOnAvailable) {
             const spotsAvailable = room.maxCapacity - occupancy;
             try {
               await sendRoomAvailableNotification(
-                notification.email, 
+                staff.email,
                 `${room.name} now has ${spotsAvailable} spot${spotsAvailable > 1 ? 's' : ''} available`
               );
-              await storage.deleteNotification(notification.id);
             } catch (error) {
               console.error('Failed to send notification:', error);
             }
