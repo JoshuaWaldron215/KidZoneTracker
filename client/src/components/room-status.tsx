@@ -4,7 +4,6 @@ import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { useEffect, useRef, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { useIsMobile } from "@/hooks/use-mobile";
 import { useNotifications } from "@/hooks/use-notifications";
 import type { Room } from "@shared/schema";
 
@@ -14,7 +13,6 @@ interface RoomStatusProps {
 
 export function RoomStatus({ room }: RoomStatusProps) {
   const { toast } = useToast();
-  const isMobile = useIsMobile();
   const [isAnimating, setIsAnimating] = useState(false);
   const { 
     isSupported, 
@@ -38,60 +36,63 @@ export function RoomStatus({ room }: RoomStatusProps) {
 
   const handleNotificationToggle = async () => {
     try {
+      // Start animation
       setIsAnimating(true);
       setTimeout(() => setIsAnimating(false), 1000);
 
+      // If already subscribed, unsubscribe
       if (isSubscribed) {
         const success = await unsubscribeFromRoom(room.id);
         if (success) {
           toast({
-            title: "Unsubscribed",
-            description: `No more notifications for ${room.name}`,
+            title: "Notifications Disabled",
+            description: `You won't receive updates for ${room.name}`,
           });
         }
         return;
       }
 
-      // If notifications aren't enabled yet
+      // If notifications aren't enabled, request permission
       if (!isEnabled) {
         const granted = await requestPermission();
-        if (!granted) return; // Error toast is handled in requestPermission
+        if (!granted) return;
       }
 
-      // Try to subscribe
+      // Subscribe to room
       const success = await subscribeToRoom(room.id);
       if (success) {
         toast({
-          title: "Subscribed",
-          description: `You'll get notifications for ${room.name}`,
+          title: "Notifications Enabled",
+          description: `You'll receive updates for ${room.name}`,
         });
       }
     } catch (error) {
       console.error('Notification toggle failed:', error);
       toast({
         title: "Error",
-        description: "Failed to manage notification settings",
+        description: "Failed to update notification settings",
         variant: "destructive",
       });
     }
   };
 
+  // Monitor occupancy changes
   useEffect(() => {
-    if (isSubscribed && isEnabled && prevOccupancyRef.current !== room.currentOccupancy) {
+    if (isSubscribed && prevOccupancyRef.current !== room.currentOccupancy) {
       const spotsRemaining = room.maxCapacity - room.currentOccupancy;
       const message = room.currentOccupancy >= room.maxCapacity 
         ? `${room.name} is now FULL`
         : `${room.name}: ${spotsRemaining} spot${spotsRemaining !== 1 ? 's' : ''} remaining`;
 
       toast({
-        title: room.name,
+        title: "Room Update",
         description: message,
         variant: room.currentOccupancy >= room.maxCapacity ? "destructive" : "default",
       });
 
       prevOccupancyRef.current = room.currentOccupancy;
     }
-  }, [room.currentOccupancy, room.maxCapacity, room.name, isSubscribed, isEnabled, toast]);
+  }, [room.currentOccupancy, room.maxCapacity, room.name, isSubscribed, toast]);
 
   return (
     <Card>
@@ -102,19 +103,19 @@ export function RoomStatus({ room }: RoomStatusProps) {
             <Button
               variant="ghost"
               size="sm"
-              className={`ml-2 transition-transform duration-300 ${
+              className={`transition-transform duration-300 ${
                 isAnimating ? 'animate-bell-ring' : ''
-              } hover:scale-110 active:scale-95`}
+              }`}
               onClick={handleNotificationToggle}
-              title={isSubscribed ? "Unsubscribe from notifications" : "Subscribe to notifications"}
+              title={isSubscribed ? "Disable notifications" : "Enable notifications"}
             >
-              {isEnabled && isSubscribed ? (
+              {isSubscribed ? (
                 <Bell className="h-4 w-4 text-primary" />
               ) : (
                 <BellOff className="h-4 w-4 text-muted-foreground" />
               )}
               <span className="sr-only">
-                {isSubscribed ? "Unsubscribe from notifications" : "Subscribe to notifications"}
+                {isSubscribed ? "Disable notifications" : "Enable notifications"}
               </span>
             </Button>
           )}

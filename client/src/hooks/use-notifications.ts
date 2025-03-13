@@ -18,17 +18,17 @@ export function useNotifications() {
       if (!isSupported()) return;
 
       // Load saved subscriptions
-      const savedRooms = localStorage.getItem('subscribedRooms');
-      if (savedRooms) {
-        try {
-          const rooms = JSON.parse(savedRooms);
-          setSubscribedRooms(rooms);
-        } catch (e) {
-          localStorage.removeItem('subscribedRooms');
+      try {
+        const savedRooms = localStorage.getItem('subscribedRooms');
+        if (savedRooms) {
+          setSubscribedRooms(JSON.parse(savedRooms));
         }
+      } catch (e) {
+        console.error('Error loading saved rooms:', e);
+        localStorage.removeItem('subscribedRooms');
       }
 
-      // If permission is already granted, try to get token
+      // Check if notifications are already enabled
       if (Notification.permission === 'granted') {
         const token = await requestNotificationPermission();
         if (token) {
@@ -51,38 +51,30 @@ export function useNotifications() {
       return false;
     }
 
-    // Check if permission is already denied
-    if (Notification.permission === 'denied') {
-      toast({
-        title: "Permission Required",
-        description: "Please enable notifications in your browser settings and refresh the page",
-        variant: "destructive",
-      });
-      return false;
-    }
-
     try {
-      // Request permission only if not already granted
-      if (Notification.permission !== 'granted') {
-        const permission = await Notification.requestPermission();
-        if (permission !== 'granted') {
-          setIsEnabled(false);
-          return false;
+      // Request notification permission
+      const permission = await Notification.requestPermission();
+
+      if (permission === 'granted') {
+        const token = await requestNotificationPermission();
+        if (token) {
+          setFcmToken(token);
+          setIsEnabled(true);
+          return true;
         }
       }
 
-      // Get FCM token
-      const token = await requestNotificationPermission();
-      if (token) {
-        setFcmToken(token);
-        setIsEnabled(true);
-        return true;
+      if (permission === 'denied') {
+        toast({
+          title: "Permission Denied",
+          description: "Please enable notifications in your browser settings",
+          variant: "destructive",
+        });
       }
 
       return false;
     } catch (error) {
       console.error('Permission request failed:', error);
-      setIsEnabled(false);
       return false;
     }
   };
