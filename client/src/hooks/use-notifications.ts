@@ -28,7 +28,6 @@ export function useNotifications() {
     const initNotifications = async () => {
       if (!isSupported()) return;
 
-      console.log('Current permission:', Notification.permission);
       if (Notification.permission === 'granted') {
         const token = await requestNotificationPermission();
         if (token) {
@@ -56,23 +55,16 @@ export function useNotifications() {
     }
 
     try {
-      // Show the browser's native permission request
-      const permission = await window.Notification.requestPermission();
-      console.log('Browser permission result:', permission);
-
-      if (permission === 'granted') {
-        // Only try to get FCM token if permission was granted
-        const token = await requestNotificationPermission();
-        if (token) {
-          setFcmToken(token);
-          setIsEnabled(true);
-          toast({
-            title: "Notifications Enabled",
-            description: "You can now subscribe to room updates",
-            duration: 3000,
-          });
-          return true;
-        }
+      const token = await requestNotificationPermission();
+      if (token) {
+        setFcmToken(token);
+        setIsEnabled(true);
+        toast({
+          title: "Notifications Enabled",
+          description: "You can now subscribe to room updates",
+          duration: 3000,
+        });
+        return true;
       }
 
       toast({
@@ -109,17 +101,12 @@ export function useNotifications() {
 
       toast({
         title: "Subscribed Successfully",
-        description: "You'll receive notifications when this room's capacity changes",
+        description: "You'll receive notifications for this room",
         duration: 3000,
       });
       return true;
     } catch (error) {
       console.error('Failed to subscribe to room:', error);
-      toast({
-        title: "Error",
-        description: "Failed to subscribe to notifications. Please try again.",
-        variant: "destructive",
-      });
       return false;
     }
   };
@@ -147,11 +134,6 @@ export function useNotifications() {
       return true;
     } catch (error) {
       console.error('Failed to unsubscribe from room:', error);
-      toast({
-        title: "Error",
-        description: "Failed to unsubscribe from notifications. Please try again.",
-        variant: "destructive",
-      });
       return false;
     }
   };

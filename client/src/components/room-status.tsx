@@ -42,34 +42,18 @@ export function RoomStatus({ room }: RoomStatusProps) {
 
       // If already subscribed, just unsubscribe
       if (isSubscribed) {
-        const success = await unsubscribeFromRoom(room.id);
-        if (!success) {
-          toast({
-            title: "Error",
-            description: "Failed to unsubscribe from notifications",
-            variant: "destructive",
-          });
-        }
+        await unsubscribeFromRoom(room.id);
         return;
       }
 
-      // If not enabled, request permission first
+      // If notifications aren't enabled yet, request permission
       if (!isEnabled) {
         const permissionGranted = await requestPermission();
-        if (!permissionGranted) {
-          return; // Error toast already shown by requestPermission
-        }
+        if (!permissionGranted) return;
       }
 
-      // Now try to subscribe
-      const success = await subscribeToRoom(room.id);
-      if (!success && isEnabled) {
-        toast({
-          title: "Error",
-          description: "Failed to subscribe to notifications",
-          variant: "destructive",
-        });
-      }
+      // Now subscribe to the room
+      await subscribeToRoom(room.id);
     } catch (error) {
       console.error('Error handling notification toggle:', error);
       toast({
