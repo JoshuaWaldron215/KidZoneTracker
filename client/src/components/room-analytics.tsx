@@ -22,6 +22,10 @@ export function RoomAnalytics({ room }: RoomAnalyticsProps) {
   const { data: history = [], isLoading } = useQuery<RoomHistory[]>({
     queryKey: [`/api/rooms/${room.id}/history`],
     refetchInterval: 1000 * 60 * 5, // Refresh every 5 minutes
+    select: (data) => {
+      // Filter out reset entries for regular analytics
+      return data.filter(entry => !entry.isReset);
+    }
   });
 
   // Process data for daily view
@@ -58,17 +62,17 @@ export function RoomAnalytics({ room }: RoomAnalyticsProps) {
     return acc;
   }, {} as Record<number, { hour: number; count: number; totalOccupancy: number }>);
 
-  const chartData = Object.values(dailyData).map(day => ({
-    date: day.date,
-    average: Math.round(day.average / day.count),
-    max: day.max,
-  }));
-
   const formatHour = (hour: number) => {
     const period = hour >= 12 ? 'PM' : 'AM';
     const standardHour = hour % 12 || 12;
     return `${standardHour}:00 ${period}`;
   };
+
+  const chartData = Object.values(dailyData).map(day => ({
+    date: day.date,
+    average: Math.round(day.average / day.count),
+    max: day.max,
+  }));
 
   const peakData = Array.from({ length: 24 }, (_, i) => {
     const hourData = peakHoursData[i] || { hour: i, count: 0, totalOccupancy: 0 };
@@ -77,6 +81,19 @@ export function RoomAnalytics({ room }: RoomAnalyticsProps) {
       average: hourData.count > 0 ? Math.round(hourData.totalOccupancy / hourData.count) : 0,
     };
   });
+
+  const tooltipFormatter = (value: number) => [`${value} children`, 'Occupancy'];
+  const customTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-background border rounded p-2 shadow-lg">
+          <p className="font-medium">{label}</p>
+          <p className="text-sm">{`${payload[0].value} children`}</p>
+        </div>
+      );
+    }
+    return null;
+  };
 
   if (isLoading) {
     return (
@@ -110,18 +127,20 @@ export function RoomAnalytics({ room }: RoomAnalyticsProps) {
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="date" />
                     <YAxis domain={[0, room.maxCapacity]} />
-                    <Tooltip />
+                    <Tooltip content={customTooltip} />
                     <Line
                       type="monotone"
                       dataKey="average"
                       stroke="#8884d8"
                       name="Average Occupancy"
+                      strokeWidth={2}
                     />
                     <Line
                       type="monotone"
                       dataKey="max"
                       stroke="#82ca9d"
                       name="Max Occupancy"
+                      strokeWidth={2}
                     />
                   </LineChart>
                 </ResponsiveContainer>
@@ -138,9 +157,15 @@ export function RoomAnalytics({ room }: RoomAnalyticsProps) {
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={peakData}>
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="hour" angle={-45} textAnchor="end" height={60} />
+                    <XAxis 
+                      dataKey="hour" 
+                      angle={-45} 
+                      textAnchor="end" 
+                      height={60}
+                      interval={0}
+                    />
                     <YAxis domain={[0, room.maxCapacity]} />
-                    <Tooltip />
+                    <Tooltip formatter={tooltipFormatter} />
                     <Bar
                       dataKey="average"
                       fill="#8884d8"

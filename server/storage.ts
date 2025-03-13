@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { eq, and, gte, asc } from "drizzle-orm";
+import { eq, and, gte, lt, asc } from "drizzle-orm";
 import { users, rooms, notifications, roomHistory, roomSubscriptions } from "@shared/schema";
 import type { InsertUser, InsertRoom, InsertNotification, InsertRoomHistory, User, Room, Notification, RoomSubscription, RoomHistory } from "@shared/schema";
 import bcrypt from "bcryptjs";
@@ -21,6 +21,7 @@ export interface IStorage {
   getRoomHistory(roomId: number): Promise<RoomHistory[]>;
   resetDailyData(roomId: number): Promise<void>;
   resetAllRoomsData(): Promise<void>;
+  archiveOldData(): Promise<void>;
 
   // Notification operations
   getNotifications(roomId: number): Promise<Notification[]>;
@@ -122,8 +123,12 @@ export class DatabaseStorage implements IStorage {
     return await db
       .select()
       .from(roomHistory)
-      .where(eq(roomHistory.roomId, roomId))
-      .where(gte(roomHistory.timestamp, thirtyDaysAgo))
+      .where(
+        and(
+          eq(roomHistory.roomId, roomId),
+          gte(roomHistory.timestamp, thirtyDaysAgo)
+        )
+      )
       .orderBy(asc(roomHistory.timestamp));
   }
 
@@ -131,22 +136,31 @@ export class DatabaseStorage implements IStorage {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // Archive current day's data
+    // Get current room data before reset
+    const [currentRoom] = await db.select().from(rooms).where(eq(rooms.id, roomId));
+    if (!currentRoom) throw new Error("Room not found");
+
+    // Archive current day's data with summary
     await db.insert(roomHistory).values({
       roomId,
       userId: 1, // System user
-      previousOccupancy: 0,
+      previousOccupancy: currentRoom.currentOccupancy,
       newOccupancy: 0,
       timestamp: new Date(),
-      isReset: true
+      isReset: true,
+      dailySummary: {
+        maxOccupancy: currentRoom.currentOccupancy,
+        lastUpdated: new Date()
+      }
     });
 
-    // Reset room occupancy
+    // Reset room occupancy but maintain historical data
     await db
       .update(rooms)
       .set({
         currentOccupancy: 0,
         updatedAt: new Date(),
+        lastReset: new Date()
       })
       .where(eq(rooms.id, roomId));
   }
@@ -156,6 +170,20 @@ export class DatabaseStorage implements IStorage {
     for (const room of allRooms) {
       await this.resetDailyData(room.id);
     }
+  }
+
+  async archiveOldData(): Promise<void> {
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    // Archive data older than 30 days
+    // In a real production system, this would move data to a separate archive table
+    // For now, we'll just keep the last 30 days
+    await db
+      .delete(roomHistory)
+      .where(
+        lt(roomHistory.timestamp, thirtyDaysAgo)
+      );
   }
 
 
@@ -247,10 +275,13 @@ async function initializeDefaultData() {
 // Initialize default data
 initializeDefaultData();
 
-// Add a mechanism to run resetAllRoomsData at midnight (requires a scheduling library)
+// Add a mechanism to run resetAllRoomsData and archiveOldData at midnight (requires a scheduling library)
 // Example using node-cron (needs to be installed: npm install node-cron)
-// import cron from 'node-cron';
+import cron from 'node-cron';
 
-// cron.schedule('0 0 * * *', () => { // Runs every day at midnight
-//   storage.resetAllRoomsData().catch(error => console.error('Error resetting data:', error));
-// });
+cron.schedule('0 0 * * *', () => { // Runs every day at midnight
+  Promise.all([
+    storage.resetAllRoomsData(),
+    storage.archiveOldData()
+  ]).catch(error => console.error('Error resetting or archiving data:', error));
+});

@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -23,6 +23,7 @@ export const rooms = pgTable("rooms", {
   isOpen: boolean("is_open").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  lastReset: timestamp("last_reset"),
 });
 
 // Track room occupancy changes
@@ -33,6 +34,8 @@ export const roomHistory = pgTable("room_history", {
   previousOccupancy: integer("previous_occupancy").notNull(),
   newOccupancy: integer("new_occupancy").notNull(),
   timestamp: timestamp("timestamp").notNull().defaultNow(),
+  isReset: boolean("is_reset").default(false),
+  dailySummary: jsonb("daily_summary"),
 });
 
 export const notifications = pgTable("notifications", {
@@ -79,6 +82,8 @@ export const insertRoomHistorySchema = createInsertSchema(roomHistory).pick({
   userId: true,
   previousOccupancy: true,
   newOccupancy: true,
+  isReset: true,
+  dailySummary: true,
 });
 
 // Add subscription schema
