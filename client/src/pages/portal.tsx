@@ -96,10 +96,13 @@ export default function Portal() {
       <div className="container mx-auto py-10">
         <div className="flex justify-between items-center mb-8">
           <div>
-            <h1 className="text-4xl font-bold">KidZone Availability</h1>
-            <p className="text-muted-foreground">Real-time room status</p>
+            <h1 className="text-4xl font-bold">KidZone Parent Portal</h1>
+            <p className="text-muted-foreground">Real-time room availability tracking</p>
           </div>
-          <div className="flex gap-4">
+          <div className="flex gap-4 items-center">
+            <Button variant="outline" onClick={() => setLocation("/login")}>
+              Staff Login
+            </Button>
             <Dialog>
               <DialogTrigger asChild>
                 <Button>Member Login</Button>
@@ -246,10 +249,10 @@ export default function Portal() {
                   </div>
                   <div className="flex justify-between items-center">
                     <span>Status:</span>
-                    <span 
+                    <span
                       className={`font-medium ${
-                        room.currentOccupancy >= room.maxCapacity 
-                          ? 'text-destructive' 
+                        room.currentOccupancy >= room.maxCapacity
+                          ? 'text-destructive'
                           : 'text-primary'
                       }`}
                     >
