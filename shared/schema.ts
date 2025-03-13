@@ -54,6 +54,31 @@ export const roomSubscriptions = pgTable("room_subscriptions", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// Add new table for parent/member accounts
+export const members = pgTable("members", {
+  id: serial("id").primaryKey(),
+  email: text("email").notNull().unique(),
+  password: text("password").notNull(),
+  name: text("name").notNull(),
+  phone: text("phone"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  isVerified: boolean("is_verified").default(false),
+  notificationPreferences: jsonb("notification_preferences").default({
+    email: true,
+    sms: false,
+    capacity: 80, // notify when capacity is below this percentage
+  }),
+});
+
+// Add table for favorite rooms
+export const memberFavorites = pgTable("member_favorites", {
+  id: serial("id").primaryKey(),
+  memberId: integer("member_id").notNull(),
+  roomId: integer("room_id").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 // Update schemas to include new fields
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
@@ -86,6 +111,20 @@ export const insertRoomHistorySchema = createInsertSchema(roomHistory).pick({
   dailySummary: true,
 });
 
+// Add new schemas
+export const insertMemberSchema = createInsertSchema(members).pick({
+  email: true,
+  password: true,
+  name: true,
+  phone: true,
+  notificationPreferences: true,
+});
+
+export const loginMemberSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(6),
+});
+
 // Add subscription schema
 export const insertRoomSubscriptionSchema = createInsertSchema(roomSubscriptions).pick({
   roomId: true,
@@ -113,3 +152,6 @@ export type Notification = typeof notifications.$inferSelect;
 export type RoomHistory = typeof roomHistory.$inferSelect;
 export type InsertRoomSubscription = z.infer<typeof insertRoomSubscriptionSchema>;
 export type RoomSubscription = typeof roomSubscriptions.$inferSelect;
+export type InsertMember = z.infer<typeof insertMemberSchema>;
+export type Member = typeof members.$inferSelect;
+export type MemberFavorite = typeof memberFavorites.$inferSelect;
