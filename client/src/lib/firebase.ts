@@ -32,51 +32,46 @@ onMessage(messaging, (payload) => {
 
 export async function requestNotificationPermission() {
   try {
-    // First check if notifications are supported
+    // Basic browser support check
     if (!("Notification" in window)) {
-      console.error('Browser does not support notifications');
+      console.error('This browser does not support notifications');
       return null;
     }
 
-    // Then check if service worker is supported
     if (!('serviceWorker' in navigator)) {
-      console.error('Service Worker not supported');
+      console.error('This browser does not support service workers');
       return null;
     }
 
-    // Check current permission status
-    const currentPermission = Notification.permission;
-    if (currentPermission === 'denied') {
-      console.log('Notifications are blocked by browser');
+    // First request notification permission
+    console.log('Requesting notification permission...');
+    const permission = await Notification.requestPermission();
+    console.log('Permission result:', permission);
+
+    if (permission !== 'granted') {
+      console.log('Permission not granted');
       return null;
     }
 
-    // Request permission if not granted
-    if (currentPermission !== 'granted') {
-      const permissionResult = await Notification.requestPermission();
-      if (permissionResult !== 'granted') {
-        console.log('Permission not granted');
-        return null;
-      }
-    }
-
-    // Get service worker registration
+    // Register service worker
+    console.log('Registering service worker...');
     let swRegistration;
     try {
-      const registrations = await navigator.serviceWorker.getRegistrations();
-      swRegistration = registrations.find(reg => reg.scope.includes('/'));
-
-      if (!swRegistration) {
-        swRegistration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
-        await swRegistration.active;
-      }
+      swRegistration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+      await swRegistration.update();
+      console.log('Service worker registered successfully');
     } catch (error) {
       console.error('Failed to register service worker:', error);
       return null;
     }
 
-    // Try to get FCM token
+    // Wait for the service worker to be ready
+    await navigator.serviceWorker.ready;
+    console.log('Service worker is ready');
+
+    // Get FCM token
     try {
+      console.log('Getting FCM token...');
       const currentToken = await getToken(messaging, {
         vapidKey: "BJYXgI6RsrKYze6d3QZh9-Oc8X0RB-yL_wSehAKXtfm4tBZxyqWm4jTvYk9CHn5dx4LuGHd5_C6k0YP3y4Ge0Ug",
         serviceWorkerRegistration: swRegistration
@@ -86,7 +81,7 @@ export async function requestNotificationPermission() {
         console.log('FCM token obtained successfully');
         return currentToken;
       } else {
-        console.error('Failed to obtain FCM token');
+        console.error('No FCM token received');
         return null;
       }
     } catch (error) {

@@ -28,6 +28,7 @@ export function useNotifications() {
     const initNotifications = async () => {
       if (!isSupported()) return;
 
+      console.log('Current permission:', Notification.permission);
       if (Notification.permission === 'granted') {
         const token = await requestNotificationPermission();
         if (token) {
@@ -55,16 +56,23 @@ export function useNotifications() {
     }
 
     try {
-      const token = await requestNotificationPermission();
-      if (token) {
-        setFcmToken(token);
-        setIsEnabled(true);
-        toast({
-          title: "Notifications Enabled",
-          description: "You can now subscribe to room updates",
-          duration: 3000,
-        });
-        return true;
+      // Show the browser's native permission request
+      const permission = await window.Notification.requestPermission();
+      console.log('Browser permission result:', permission);
+
+      if (permission === 'granted') {
+        // Only try to get FCM token if permission was granted
+        const token = await requestNotificationPermission();
+        if (token) {
+          setFcmToken(token);
+          setIsEnabled(true);
+          toast({
+            title: "Notifications Enabled",
+            description: "You can now subscribe to room updates",
+            duration: 3000,
+          });
+          return true;
+        }
       }
 
       toast({
@@ -74,7 +82,7 @@ export function useNotifications() {
       });
       return false;
     } catch (error) {
-      console.error('Error requesting notification permission:', error);
+      console.error('Error requesting permission:', error);
       toast({
         title: "Error",
         description: "Failed to enable notifications. Please try again.",
