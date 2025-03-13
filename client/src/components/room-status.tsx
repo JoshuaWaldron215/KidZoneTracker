@@ -36,19 +36,20 @@ export function RoomStatus({ room }: RoomStatusProps) {
 
   const handleNotificationToggle = async () => {
     try {
-      if (!isEnabled) {
-        console.log('Requesting notification permission...');
-        const enabled = await requestPermission();
-        console.log('Permission request result:', enabled);
-        if (enabled) {
-          await subscribeToRoom(room.id);
-        }
-      } else {
+      // If notifications are already enabled, just toggle subscription
+      if (isEnabled) {
         if (isSubscribed) {
           await unsubscribeFromRoom(room.id);
         } else {
           await subscribeToRoom(room.id);
         }
+        return;
+      }
+
+      // If notifications aren't enabled, request permission
+      const enabled = await requestPermission();
+      if (enabled) {
+        await subscribeToRoom(room.id);
       }
     } catch (error) {
       console.error('Error handling notification toggle:', error);
@@ -95,6 +96,13 @@ export function RoomStatus({ room }: RoomStatusProps) {
               size="sm"
               className="ml-2"
               onClick={handleNotificationToggle}
+              title={
+                !isEnabled 
+                  ? "Enable notifications" 
+                  : isSubscribed 
+                    ? "Unsubscribe from notifications" 
+                    : "Subscribe to notifications"
+              }
             >
               {isSubscribed ? (
                 <Bell className="h-4 w-4 text-primary" />
