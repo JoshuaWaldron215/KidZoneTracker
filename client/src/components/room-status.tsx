@@ -61,9 +61,9 @@ export function RoomStatus({ room }: RoomStatusProps) {
         }
       }
 
-      // Try to subscribe
+      // Now try to subscribe
       const success = await subscribeToRoom(room.id);
-      if (!success) {
+      if (!success && isEnabled) {
         toast({
           title: "Error",
           description: "Failed to subscribe to notifications",
@@ -74,7 +74,7 @@ export function RoomStatus({ room }: RoomStatusProps) {
       console.error('Error handling notification toggle:', error);
       toast({
         title: "Error",
-        description: "Failed to manage notifications. Please try again.",
+        description: "Failed to manage notifications",
         variant: "destructive",
       });
     }

@@ -59,6 +59,11 @@ export function useNotifications() {
       if (token) {
         setFcmToken(token);
         setIsEnabled(true);
+        toast({
+          title: "Notifications Enabled",
+          description: "You can now subscribe to room updates",
+          duration: 3000,
+        });
         return true;
       }
 
@@ -95,7 +100,7 @@ export function useNotifications() {
       localStorage.setItem('subscribedRooms', JSON.stringify(newSubscriptions));
 
       toast({
-        title: "Subscribed",
+        title: "Subscribed Successfully",
         description: "You'll receive notifications when this room's capacity changes",
         duration: 3000,
       });
@@ -127,7 +132,7 @@ export function useNotifications() {
       localStorage.setItem('subscribedRooms', JSON.stringify(newSubscriptions));
 
       toast({
-        title: "Unsubscribed",
+        title: "Unsubscribed Successfully",
         description: "You won't receive notifications for this room anymore",
         duration: 3000,
       });
