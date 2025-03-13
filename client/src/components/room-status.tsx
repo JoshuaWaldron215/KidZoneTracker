@@ -36,21 +36,23 @@ export function RoomStatus({ room }: RoomStatusProps) {
 
   const handleNotificationToggle = async () => {
     try {
-      // If notifications are enabled, handle subscription toggle
-      if (isEnabled) {
-        if (isSubscribed) {
-          await unsubscribeFromRoom(room.id);
-        } else {
+      // If already subscribed, just unsubscribe
+      if (isSubscribed) {
+        await unsubscribeFromRoom(room.id);
+        return;
+      }
+
+      // If notifications aren't enabled yet, request permission
+      if (!isEnabled) {
+        const enabled = await requestPermission();
+        if (enabled) {
           await subscribeToRoom(room.id);
         }
         return;
       }
 
-      // If notifications aren't enabled, request permission
-      const enabled = await requestPermission();
-      if (enabled) {
-        await subscribeToRoom(room.id);
-      }
+      // If enabled but not subscribed, subscribe
+      await subscribeToRoom(room.id);
     } catch (error) {
       console.error('Error handling notification toggle:', error);
       toast({
@@ -70,7 +72,6 @@ export function RoomStatus({ room }: RoomStatusProps) {
         ? `${room.name} is now FULL`
         : `${room.name}: ${spotsRemaining} spot${spotsRemaining !== 1 ? 's' : ''} remaining`;
 
-      // Show toast
       toast({
         title: room.name,
         description: message,
@@ -92,13 +93,7 @@ export function RoomStatus({ room }: RoomStatusProps) {
               size="sm"
               className="ml-2"
               onClick={handleNotificationToggle}
-              title={
-                !isEnabled 
-                  ? "Enable notifications" 
-                  : isSubscribed 
-                    ? "Unsubscribe from notifications" 
-                    : "Subscribe to notifications"
-              }
+              title={isSubscribed ? "Unsubscribe from notifications" : "Subscribe to notifications"}
             >
               {isSubscribed ? (
                 <Bell className="h-4 w-4 text-primary" />
@@ -106,7 +101,7 @@ export function RoomStatus({ room }: RoomStatusProps) {
                 <BellOff className="h-4 w-4 text-muted-foreground" />
               )}
               <span className="sr-only">
-                {isSubscribed ? "Unsubscribe from notifications" : "Get notified when capacity changes"}
+                {isSubscribed ? "Unsubscribe from notifications" : "Subscribe to notifications"}
               </span>
             </Button>
           )}

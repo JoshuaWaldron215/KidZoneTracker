@@ -28,7 +28,6 @@ export function useNotifications() {
     const checkNotificationStatus = async () => {
       if (!isSupported()) return;
 
-      // If we already have permission, try to get token
       if (Notification.permission === 'granted') {
         try {
           const token = await requestNotificationPermission();
@@ -44,8 +43,6 @@ export function useNotifications() {
           console.error('Error initializing notifications:', error);
           setIsEnabled(false);
         }
-      } else {
-        setIsEnabled(false);
       }
     };
 
@@ -63,21 +60,11 @@ export function useNotifications() {
     }
 
     try {
-      // Request browser permission
-      const permission = await Notification.requestPermission();
-
-      if (permission === 'granted') {
-        const token = await requestNotificationPermission();
-        if (token) {
-          setFcmToken(token);
-          setIsEnabled(true);
-          toast({
-            title: "Notifications Enabled",
-            description: "You'll receive updates about room capacity changes",
-            duration: 3000,
-          });
-          return true;
-        }
+      const token = await requestNotificationPermission();
+      if (token) {
+        setFcmToken(token);
+        setIsEnabled(true);
+        return true;
       }
 
       setIsEnabled(false);
@@ -101,7 +88,6 @@ export function useNotifications() {
 
   const subscribeToRoom = async (roomId: number) => {
     if (!fcmToken || !isEnabled) {
-      console.error('No FCM token available or notifications not enabled');
       return false;
     }
 
