@@ -7,6 +7,8 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  BarChart,
+  Bar,
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -19,7 +21,7 @@ interface RoomAnalyticsProps {
 export function RoomAnalytics({ room }: RoomAnalyticsProps) {
   const { data: history = [], isLoading } = useQuery<RoomHistory[]>({
     queryKey: [`/api/rooms/${room.id}/history`],
-    refetchInterval: 1000 * 60 * 5, // 5 minutes
+    refetchInterval: 1000 * 60 * 5, // Refresh every 5 minutes
   });
 
   // Process data for daily view
@@ -40,11 +42,35 @@ export function RoomAnalytics({ room }: RoomAnalyticsProps) {
     return acc;
   }, {} as Record<string, { date: string; average: number; count: number; max: number }>);
 
+  // Process data for peak hours
+  const peakHoursData = history.reduce((acc, entry) => {
+    const hour = new Date(entry.timestamp).getHours();
+    if (!acc[hour]) {
+      acc[hour] = {
+        hour,
+        count: 1,
+        totalOccupancy: entry.newOccupancy,
+      };
+    } else {
+      acc[hour].count += 1;
+      acc[hour].totalOccupancy += entry.newOccupancy;
+    }
+    return acc;
+  }, {} as Record<number, { hour: number; count: number; totalOccupancy: number }>);
+
   const chartData = Object.values(dailyData).map(day => ({
     date: day.date,
     average: Math.round(day.average / day.count),
     max: day.max,
   }));
+
+  const peakData = Array.from({ length: 24 }, (_, i) => {
+    const hourData = peakHoursData[i] || { hour: i, count: 0, totalOccupancy: 0 };
+    return {
+      hour: `${i.toString().padStart(2, '0')}:00`,
+      average: hourData.count > 0 ? Math.round(hourData.totalOccupancy / hourData.count) : 0,
+    };
+  });
 
   if (isLoading) {
     return (
@@ -101,8 +127,26 @@ export function RoomAnalytics({ room }: RoomAnalyticsProps) {
             </div>
           </TabsContent>
           <TabsContent value="peak" className="pt-4">
-            <div className="text-center text-muted-foreground">
-              Peak hours analysis coming soon
+            <div className="h-[300px]">
+              {peakData.some(data => data.average > 0) ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={peakData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="hour" />
+                    <YAxis domain={[0, room.maxCapacity]} />
+                    <Tooltip />
+                    <Bar
+                      dataKey="average"
+                      fill="#8884d8"
+                      name="Average Occupancy"
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-full text-muted-foreground">
+                  No peak hours data available
+                </div>
+              )}
             </div>
           </TabsContent>
         </Tabs>

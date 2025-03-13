@@ -82,6 +82,7 @@ export class DatabaseStorage implements IStorage {
       userId: 1, // TODO: Get from auth context
       previousOccupancy: currentRoom.currentOccupancy,
       newOccupancy: occupancy,
+      timestamp: new Date(),
     });
 
     // Update room
