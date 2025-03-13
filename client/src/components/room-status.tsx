@@ -41,8 +41,11 @@ export function RoomStatus({ room }: RoomStatusProps) {
       setIsAnimating(true);
       setTimeout(() => setIsAnimating(false), 1000);
 
-      console.log('Toggle clicked for room:', room.id);
-      console.log('Current state - Subscribed:', isSubscribed, 'Enabled:', isEnabled);
+      console.log('Handling notification toggle for room:', room.id, {
+        isSubscribed,
+        isEnabled,
+        subscribedRooms
+      });
 
       if (isSubscribed) {
         await unsubscribeFromRoom(room.id);
@@ -50,19 +53,13 @@ export function RoomStatus({ room }: RoomStatusProps) {
       }
 
       if (!isEnabled) {
-        console.log('Requesting permission...');
         const granted = await requestPermission();
-        if (!granted) {
-          console.log('Permission not granted');
-          return;
-        }
-        console.log('Permission granted');
+        if (!granted) return;
       }
 
-      console.log('Subscribing to room:', room.id);
       await subscribeToRoom(room.id);
     } catch (error) {
-      console.error('Error handling notification toggle:', error);
+      console.error('Error toggling notifications:', error);
       toast({
         title: "Error",
         description: "Failed to manage notifications",

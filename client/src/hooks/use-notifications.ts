@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { useIsMobile } from '@/hooks/use-mobile';
 import { requestNotificationPermission } from '@/lib/firebase';
 import { apiRequest } from '@/lib/queryClient';
 
@@ -9,18 +8,9 @@ export function useNotifications() {
   const [subscribedRooms, setSubscribedRooms] = useState<number[]>([]);
   const [fcmToken, setFcmToken] = useState<string | null>(null);
   const { toast } = useToast();
-  const isMobile = useIsMobile();
 
   const isSupported = () => {
-    if (!('Notification' in window)) {
-      console.log('Notifications not supported - no Notification API');
-      return false;
-    }
-    if (!('serviceWorker' in navigator)) {
-      console.log('Notifications not supported - no Service Worker support');
-      return false;
-    }
-    return true;
+    return 'Notification' in window && 'serviceWorker' in navigator;
   };
 
   // Initialize state based on current permissions
@@ -33,7 +23,7 @@ export function useNotifications() {
       if (savedRooms) {
         try {
           const rooms = JSON.parse(savedRooms);
-          console.log('Loaded saved room subscriptions:', rooms);
+          console.log('Loading saved room subscriptions:', rooms);
           setSubscribedRooms(rooms);
         } catch (e) {
           console.error('Error parsing saved rooms:', e);
@@ -67,14 +57,13 @@ export function useNotifications() {
     }
 
     try {
-      console.log('Requesting notification permission...');
-      const permissionResult = await Notification.requestPermission();
-      console.log('Permission result:', permissionResult);
+      const permission = await Notification.requestPermission();
+      console.log('Permission request result:', permission);
 
-      if (permissionResult === 'granted') {
+      if (permission === 'granted') {
         const token = await requestNotificationPermission();
         if (token) {
-          console.log('Setting FCM token:', token);
+          console.log('Got new FCM token:', token);
           setFcmToken(token);
           setIsEnabled(true);
           toast({
@@ -95,21 +84,19 @@ export function useNotifications() {
     } catch (error) {
       console.error('Error requesting permission:', error);
       setIsEnabled(false);
-      toast({
-        title: "Error",
-        description: "Failed to enable notifications",
-        variant: "destructive",
-      });
       return false;
     }
   };
 
   const subscribeToRoom = async (roomId: number) => {
-    console.log('Attempting to subscribe to room:', roomId);
-    console.log('Current state - Enabled:', isEnabled, 'Token:', fcmToken);
+    console.log('Subscribing to room:', roomId, 'Current state:', {
+      isEnabled,
+      fcmToken,
+      subscribedRooms
+    });
 
     if (!fcmToken || !isEnabled) {
-      console.error('Cannot subscribe - Token or notifications not enabled');
+      console.error('Cannot subscribe - missing token or notifications disabled');
       return false;
     }
 
@@ -119,6 +106,7 @@ export function useNotifications() {
         token: fcmToken,
       });
 
+      // Update state immediately
       const newSubscriptions = [...subscribedRooms, roomId];
       console.log('Updating subscriptions to:', newSubscriptions);
       setSubscribedRooms(newSubscriptions);
@@ -131,20 +119,19 @@ export function useNotifications() {
       return true;
     } catch (error) {
       console.error('Failed to subscribe:', error);
-      toast({
-        title: "Error",
-        description: "Failed to subscribe to room",
-        variant: "destructive",
-      });
       return false;
     }
   };
 
   const unsubscribeFromRoom = async (roomId: number) => {
-    console.log('Attempting to unsubscribe from room:', roomId);
+    console.log('Unsubscribing from room:', roomId, 'Current state:', {
+      isEnabled,
+      fcmToken,
+      subscribedRooms
+    });
 
     if (!fcmToken || !isEnabled) {
-      console.error('Cannot unsubscribe - Token or notifications not enabled');
+      console.error('Cannot unsubscribe - missing token or notifications disabled');
       return false;
     }
 
@@ -154,6 +141,7 @@ export function useNotifications() {
         token: fcmToken,
       });
 
+      // Update state immediately
       const newSubscriptions = subscribedRooms.filter(id => id !== roomId);
       console.log('Updating subscriptions to:', newSubscriptions);
       setSubscribedRooms(newSubscriptions);
@@ -161,16 +149,11 @@ export function useNotifications() {
 
       toast({
         title: "Room Unsubscribed",
-        description: `You won't receive notifications for room ${roomId} anymore`,
+        description: `You won't receive notifications for room ${roomId}`,
       });
       return true;
     } catch (error) {
       console.error('Failed to unsubscribe:', error);
-      toast({
-        title: "Error",
-        description: "Failed to unsubscribe from room",
-        variant: "destructive",
-      });
       return false;
     }
   };
