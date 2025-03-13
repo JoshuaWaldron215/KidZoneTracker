@@ -52,18 +52,13 @@ export function RoomStatus({ room }: RoomStatusProps) {
         return;
       }
 
+      // If notifications aren't enabled yet
       if (!isEnabled) {
         const granted = await requestPermission();
-        if (!granted) {
-          toast({
-            title: "Permission Required",
-            description: "Please enable notifications in your browser settings",
-            variant: "destructive",
-          });
-          return;
-        }
+        if (!granted) return; // Error toast is handled in requestPermission
       }
 
+      // Try to subscribe
       const success = await subscribeToRoom(room.id);
       if (success) {
         toast({

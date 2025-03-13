@@ -17,7 +17,7 @@ export function useNotifications() {
     const initNotifications = async () => {
       if (!isSupported()) return;
 
-      // Load saved subscriptions first
+      // Load saved subscriptions
       const savedRooms = localStorage.getItem('subscribedRooms');
       if (savedRooms) {
         try {
@@ -28,7 +28,7 @@ export function useNotifications() {
         }
       }
 
-      // Check if already enabled
+      // If permission is already granted, try to get token
       if (Notification.permission === 'granted') {
         const token = await requestNotificationPermission();
         if (token) {
@@ -51,19 +51,34 @@ export function useNotifications() {
       return false;
     }
 
-    try {
-      const permission = await Notification.requestPermission();
+    // Check if permission is already denied
+    if (Notification.permission === 'denied') {
+      toast({
+        title: "Permission Required",
+        description: "Please enable notifications in your browser settings and refresh the page",
+        variant: "destructive",
+      });
+      return false;
+    }
 
-      if (permission === 'granted') {
-        const token = await requestNotificationPermission();
-        if (token) {
-          setFcmToken(token);
-          setIsEnabled(true);
-          return true;
+    try {
+      // Request permission only if not already granted
+      if (Notification.permission !== 'granted') {
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') {
+          setIsEnabled(false);
+          return false;
         }
       }
 
-      setIsEnabled(false);
+      // Get FCM token
+      const token = await requestNotificationPermission();
+      if (token) {
+        setFcmToken(token);
+        setIsEnabled(true);
+        return true;
+      }
+
       return false;
     } catch (error) {
       console.error('Permission request failed:', error);
@@ -73,9 +88,7 @@ export function useNotifications() {
   };
 
   const subscribeToRoom = async (roomId: number) => {
-    if (!fcmToken || !isEnabled) {
-      return false;
-    }
+    if (!fcmToken || !isEnabled) return false;
 
     try {
       await apiRequest('POST', '/api/notifications/subscribe', {
@@ -97,9 +110,7 @@ export function useNotifications() {
   };
 
   const unsubscribeFromRoom = async (roomId: number) => {
-    if (!fcmToken || !isEnabled) {
-      return false;
-    }
+    if (!fcmToken || !isEnabled) return false;
 
     try {
       await apiRequest('POST', '/api/notifications/unsubscribe', {
