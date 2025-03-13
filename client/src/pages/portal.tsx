@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useWebSocket } from "@/hooks/use-websocket";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Room } from "@shared/schema";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -32,7 +32,17 @@ export default function Portal() {
   // Get initial room data
   const { data: rooms = [], isLoading } = useQuery<Room[]>({
     queryKey: ["/api/rooms"],
-    refetchInterval: 1000 * 60, // Refresh every minute
+    refetchInterval: 1000 * 60, // Refresh every minute as backup
+  });
+
+  // Setup WebSocket for real-time updates
+  useWebSocket({
+    onMessage: (data) => {
+      if (data.type === 'ROOMS_UPDATE') {
+        // Update the rooms data in React Query cache
+        queryClient.setQueryData(["/api/rooms"], data.rooms);
+      }
+    },
   });
 
   const loginMutation = useMutation({
@@ -88,7 +98,11 @@ export default function Portal() {
   });
 
   if (isLoading) {
-    return <div>Loading room availability...</div>;
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-lg">Loading room availability...</div>
+      </div>
+    );
   }
 
   return (
@@ -231,7 +245,10 @@ export default function Portal() {
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {rooms.filter(room => room.isOpen).map((room) => (
-            <Card key={room.id}>
+            <Card key={room.id} className={`
+              transition-all duration-300
+              ${room.currentOccupancy >= room.maxCapacity ? 'border-destructive/50' : 'border-primary/50'}
+            `}>
               <CardHeader>
                 <CardTitle>{room.name}</CardTitle>
               </CardHeader>
