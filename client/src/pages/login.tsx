@@ -52,7 +52,7 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-background">
       <Card className="w-full max-w-md mx-4">
         <CardHeader>
           <CardTitle>Staff Login</CardTitle>
@@ -76,6 +76,13 @@ export default function Login() {
           </form>
         </CardContent>
       </Card>
+
+      <div className="mt-4 text-center">
+        <p className="text-muted-foreground mb-2">Looking for the parent portal?</p>
+        <Button variant="outline" onClick={() => setLocation("/portal")}>
+          Go to Parent Portal
+        </Button>
+      </div>
     </div>
   );
 }
