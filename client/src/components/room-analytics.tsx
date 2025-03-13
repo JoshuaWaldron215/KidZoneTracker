@@ -28,30 +28,39 @@ export function RoomAnalytics({ room }: RoomAnalyticsProps) {
     if (!acc[date]) {
       acc[date] = {
         date,
-        avgOccupancy: entry.newOccupancy,
+        average: entry.newOccupancy,
         count: 1,
-        maxOccupancy: entry.newOccupancy,
+        max: entry.newOccupancy,
       };
     } else {
-      acc[date].avgOccupancy += entry.newOccupancy;
+      acc[date].average += entry.newOccupancy;
       acc[date].count += 1;
-      acc[date].maxOccupancy = Math.max(acc[date].maxOccupancy, entry.newOccupancy);
+      acc[date].max = Math.max(acc[date].max, entry.newOccupancy);
     }
     return acc;
-  }, {} as Record<string, { date: string; avgOccupancy: number; count: number; maxOccupancy: number; }>);
+  }, {} as Record<string, { date: string; average: number; count: number; max: number }>);
 
   const chartData = Object.values(dailyData).map(day => ({
     date: day.date,
-    average: Math.round(day.avgOccupancy / day.count),
-    max: day.maxOccupancy,
+    average: Math.round(day.average / day.count),
+    max: day.max,
   }));
 
   if (isLoading) {
-    return <div>Loading analytics...</div>;
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Room Analytics</CardTitle>
+        </CardHeader>
+        <CardContent className="flex items-center justify-center min-h-[300px]">
+          <p>Loading analytics...</p>
+        </CardContent>
+      </Card>
+    );
   }
 
   return (
-    <Card className="mt-6">
+    <Card>
       <CardHeader>
         <CardTitle>Room Analytics</CardTitle>
       </CardHeader>
@@ -63,26 +72,32 @@ export function RoomAnalytics({ room }: RoomAnalyticsProps) {
           </TabsList>
           <TabsContent value="occupancy" className="pt-4">
             <div className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" />
-                  <YAxis domain={[0, room.maxCapacity]} />
-                  <Tooltip />
-                  <Line
-                    type="monotone"
-                    dataKey="average"
-                    stroke="#8884d8"
-                    name="Average Occupancy"
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="max"
-                    stroke="#82ca9d"
-                    name="Max Occupancy"
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+              {chartData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" />
+                    <YAxis domain={[0, room.maxCapacity]} />
+                    <Tooltip />
+                    <Line
+                      type="monotone"
+                      dataKey="average"
+                      stroke="#8884d8"
+                      name="Average Occupancy"
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="max"
+                      stroke="#82ca9d"
+                      name="Max Occupancy"
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-full text-muted-foreground">
+                  No historical data available
+                </div>
+              )}
             </div>
           </TabsContent>
           <TabsContent value="peak" className="pt-4">

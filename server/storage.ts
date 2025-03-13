@@ -1,7 +1,7 @@
 import { db } from "./db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, gte, asc } from "drizzle-orm";
 import { users, rooms, notifications, roomHistory, roomSubscriptions } from "@shared/schema";
-import type { InsertUser, InsertRoom, InsertNotification, InsertRoomHistory, User, Room, Notification, RoomSubscription } from "@shared/schema";
+import type { InsertUser, InsertRoom, InsertNotification, InsertRoomHistory, User, Room, Notification, RoomSubscription, RoomHistory } from "@shared/schema";
 import bcrypt from "bcryptjs";
 
 export interface IStorage {
@@ -18,6 +18,7 @@ export interface IStorage {
   createRoom(room: InsertRoom): Promise<Room>;
   updateRoomOccupancy(id: number, occupancy: number): Promise<Room>;
   updateRoomStatus(id: number, isOpen: boolean): Promise<Room>;
+  getRoomHistory(roomId: number): Promise<RoomHistory[]>;
 
   // Notification operations
   getNotifications(roomId: number): Promise<Notification[]>;
@@ -47,7 +48,7 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async getUsers(): Promise<User[]> { 
+  async getUsers(): Promise<User[]> {
     return await db.select().from(users);
   }
 
@@ -108,6 +109,19 @@ export class DatabaseStorage implements IStorage {
 
     if (!updatedRoom) throw new Error("Room not found");
     return updatedRoom;
+  }
+
+  async getRoomHistory(roomId: number): Promise<RoomHistory[]> {
+    // Get the last 30 days of history
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    return await db
+      .select()
+      .from(roomHistory)
+      .where(eq(roomHistory.roomId, roomId))
+      .where(gte(roomHistory.timestamp, thirtyDaysAgo))
+      .orderBy(asc(roomHistory.timestamp));
   }
 
   // Notification operations

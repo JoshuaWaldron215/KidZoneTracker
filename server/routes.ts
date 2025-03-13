@@ -208,6 +208,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Add new room history route after other room routes
+  app.get("/api/rooms/:id/history", authenticateUser, async (req, res) => {
+    try {
+      const roomId = parseInt(req.params.id);
+      const history = await storage.getRoomHistory(roomId);
+      res.json(history);
+    } catch (error) {
+      console.error('Failed to get room history:', error);
+      res.status(500).json({ message: "Failed to fetch room history" });
+    }
+  });
+
   // Notification routes
   app.post("/api/notifications", async (req, res) => {
     try {
