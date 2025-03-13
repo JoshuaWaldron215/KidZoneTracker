@@ -41,28 +41,41 @@ export function RoomStatus({ room }: RoomStatusProps) {
       setIsAnimating(true);
       setTimeout(() => setIsAnimating(false), 1000);
 
-      console.log('Handling notification toggle for room:', room.id, {
-        isSubscribed,
-        isEnabled,
-        subscribedRooms
-      });
-
       if (isSubscribed) {
-        await unsubscribeFromRoom(room.id);
+        const success = await unsubscribeFromRoom(room.id);
+        if (success) {
+          toast({
+            title: "Unsubscribed",
+            description: `No more notifications for ${room.name}`,
+          });
+        }
         return;
       }
 
       if (!isEnabled) {
         const granted = await requestPermission();
-        if (!granted) return;
+        if (!granted) {
+          toast({
+            title: "Permission Required",
+            description: "Please enable notifications in your browser settings",
+            variant: "destructive",
+          });
+          return;
+        }
       }
 
-      await subscribeToRoom(room.id);
+      const success = await subscribeToRoom(room.id);
+      if (success) {
+        toast({
+          title: "Subscribed",
+          description: `You'll get notifications for ${room.name}`,
+        });
+      }
     } catch (error) {
-      console.error('Error toggling notifications:', error);
+      console.error('Notification toggle failed:', error);
       toast({
         title: "Error",
-        description: "Failed to manage notifications",
+        description: "Failed to manage notification settings",
         variant: "destructive",
       });
     }
@@ -100,7 +113,7 @@ export function RoomStatus({ room }: RoomStatusProps) {
               onClick={handleNotificationToggle}
               title={isSubscribed ? "Unsubscribe from notifications" : "Subscribe to notifications"}
             >
-              {isSubscribed ? (
+              {isEnabled && isSubscribed ? (
                 <Bell className="h-4 w-4 text-primary" />
               ) : (
                 <BellOff className="h-4 w-4 text-muted-foreground" />
