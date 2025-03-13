@@ -40,8 +40,8 @@ export function RoomStatus({ room }: RoomStatusProps) {
       setIsAnimating(true);
       setTimeout(() => setIsAnimating(false), 1000);
 
-      // If already subscribed, just unsubscribe
       if (isSubscribed) {
+        // If already subscribed, just unsubscribe
         await unsubscribeFromRoom(room.id);
         return;
       }
@@ -52,7 +52,7 @@ export function RoomStatus({ room }: RoomStatusProps) {
         if (!permissionGranted) return;
       }
 
-      // Now subscribe to the room
+      // Try to subscribe to this room
       await subscribeToRoom(room.id);
     } catch (error) {
       console.error('Error handling notification toggle:', error);

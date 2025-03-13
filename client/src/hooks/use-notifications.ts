@@ -28,15 +28,17 @@ export function useNotifications() {
     const initNotifications = async () => {
       if (!isSupported()) return;
 
+      // Load saved subscriptions first
+      const savedRooms = localStorage.getItem('subscribedRooms');
+      if (savedRooms) {
+        setSubscribedRooms(JSON.parse(savedRooms));
+      }
+
       if (Notification.permission === 'granted') {
         const token = await requestNotificationPermission();
         if (token) {
           setFcmToken(token);
           setIsEnabled(true);
-          const savedRooms = localStorage.getItem('subscribedRooms');
-          if (savedRooms) {
-            setSubscribedRooms(JSON.parse(savedRooms));
-          }
         }
       }
     };
