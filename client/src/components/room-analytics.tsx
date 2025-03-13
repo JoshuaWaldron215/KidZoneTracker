@@ -64,10 +64,16 @@ export function RoomAnalytics({ room }: RoomAnalyticsProps) {
     max: day.max,
   }));
 
+  const formatHour = (hour: number) => {
+    const period = hour >= 12 ? 'PM' : 'AM';
+    const standardHour = hour % 12 || 12;
+    return `${standardHour}:00 ${period}`;
+  };
+
   const peakData = Array.from({ length: 24 }, (_, i) => {
     const hourData = peakHoursData[i] || { hour: i, count: 0, totalOccupancy: 0 };
     return {
-      hour: `${i.toString().padStart(2, '0')}:00`,
+      hour: formatHour(i),
       average: hourData.count > 0 ? Math.round(hourData.totalOccupancy / hourData.count) : 0,
     };
   });
@@ -132,7 +138,7 @@ export function RoomAnalytics({ room }: RoomAnalyticsProps) {
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={peakData}>
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="hour" />
+                    <XAxis dataKey="hour" angle={-45} textAnchor="end" height={60} />
                     <YAxis domain={[0, room.maxCapacity]} />
                     <Tooltip />
                     <Bar
