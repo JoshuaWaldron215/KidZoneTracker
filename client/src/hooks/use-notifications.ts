@@ -23,18 +23,15 @@ export function useNotifications() {
     return true;
   };
 
-  // Initialize notifications status
+  // Initialize notifications status on mount
   useEffect(() => {
     const checkNotificationStatus = async () => {
       if (!isSupported()) return;
 
-      console.log('Checking notification status...');
-      console.log('Current permission:', Notification.permission);
-
+      // Check if we already have permission
       if (Notification.permission === 'granted') {
         try {
           const token = await requestNotificationPermission();
-          console.log('Got FCM token:', !!token);
           if (token) {
             setFcmToken(token);
             setIsEnabled(true);
@@ -63,40 +60,43 @@ export function useNotifications() {
         return false;
       }
 
-      // First reset the state
+      // Reset state before requesting
       setIsEnabled(false);
       setFcmToken(null);
 
-      // Request permission and get token
-      const token = await requestNotificationPermission();
-      console.log('Permission request result:', !!token);
+      // Show native browser permission prompt
+      const permission = await window.Notification.requestPermission();
+      console.log('Browser permission result:', permission);
 
-      if (token) {
-        setFcmToken(token);
-        setIsEnabled(true);
+      if (permission === 'granted') {
+        // Get FCM token only after permission is granted
+        const token = await requestNotificationPermission();
+        if (token) {
+          setFcmToken(token);
+          setIsEnabled(true);
 
-        // Load saved subscriptions
-        const savedRooms = localStorage.getItem('subscribedRooms');
-        if (savedRooms) {
-          setSubscribedRooms(JSON.parse(savedRooms));
+          const savedRooms = localStorage.getItem('subscribedRooms');
+          if (savedRooms) {
+            setSubscribedRooms(JSON.parse(savedRooms));
+          }
+
+          toast({
+            title: "Notifications Enabled",
+            description: "You'll receive updates about room capacity changes",
+            duration: 3000,
+          });
+          return true;
         }
-
-        toast({
-          title: "Notifications Enabled",
-          description: "You'll receive updates about room capacity changes",
-          duration: 3000,
-        });
-        return true;
-      } else {
-        toast({
-          title: "Notifications Disabled",
-          description: "Please enable notifications in your browser settings to receive updates",
-          variant: "destructive",
-        });
-        return false;
       }
+
+      toast({
+        title: "Notifications Disabled",
+        description: "Please enable notifications in your browser settings to receive updates",
+        variant: "destructive",
+      });
+      return false;
     } catch (error) {
-      console.error('Error requesting notification permission:', error);
+      console.error('Error requesting permission:', error);
       toast({
         title: "Error",
         description: "Failed to enable notifications. Please try again.",
@@ -106,7 +106,6 @@ export function useNotifications() {
     }
   };
 
-  // Subscribe to a room's notifications
   const subscribeToRoom = async (roomId: number) => {
     if (!fcmToken) {
       console.error('No FCM token available');
@@ -114,7 +113,6 @@ export function useNotifications() {
     }
 
     try {
-      console.log('Subscribing to room:', roomId);
       await apiRequest('POST', '/api/notifications/subscribe', {
         roomId,
         token: fcmToken,
@@ -146,7 +144,6 @@ export function useNotifications() {
     }
 
     try {
-      console.log('Unsubscribing from room:', roomId);
       await apiRequest('POST', '/api/notifications/unsubscribe', {
         roomId,
         token: fcmToken,
