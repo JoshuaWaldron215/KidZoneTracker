@@ -10,9 +10,11 @@ import {
   BarChart,
   Bar,
   Legend,
+  ReferenceLine,
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { format } from "date-fns";
 import type { Room, RoomHistory } from "@shared/schema";
 
 interface RoomAnalyticsProps {
@@ -29,9 +31,15 @@ export function RoomAnalytics({ room }: RoomAnalyticsProps) {
   const regularUpdates = history.filter(entry => !entry.isReset);
   const resetEntries = history.filter(entry => entry.isReset);
 
+  // Get data since last reset
+  const lastReset = room.lastReset ? new Date(room.lastReset) : null;
+  const currentData = lastReset 
+    ? regularUpdates.filter(entry => new Date(entry.timestamp) > lastReset)
+    : regularUpdates;
+
   // Process data for daily view
-  const dailyData = regularUpdates.reduce((acc, entry) => {
-    const date = new Date(entry.timestamp).toLocaleDateString();
+  const dailyData = currentData.reduce((acc, entry) => {
+    const date = format(new Date(entry.timestamp), 'MMM dd');
     if (!acc[date]) {
       acc[date] = {
         date,
@@ -48,15 +56,15 @@ export function RoomAnalytics({ room }: RoomAnalyticsProps) {
   }, {} as Record<string, { date: string; average: number; count: number; max: number }>);
 
   // Process data for weekly view
-  const weeklyData = regularUpdates.reduce((acc, entry) => {
+  const weeklyData = currentData.reduce((acc, entry) => {
     const date = new Date(entry.timestamp);
     const weekStart = new Date(date);
     weekStart.setDate(date.getDate() - date.getDay());
-    const weekKey = weekStart.toLocaleDateString();
+    const weekKey = format(weekStart, 'MMM dd');
 
     if (!acc[weekKey]) {
       acc[weekKey] = {
-        week: `Week of ${weekStart.toLocaleDateString()}`,
+        week: `Week of ${weekKey}`,
         average: entry.newOccupancy,
         count: 1,
         max: entry.newOccupancy,
@@ -70,7 +78,7 @@ export function RoomAnalytics({ room }: RoomAnalyticsProps) {
   }, {} as Record<string, { week: string; average: number; count: number; max: number }>);
 
   // Process data for peak hours
-  const peakHoursData = regularUpdates.reduce((acc, entry) => {
+  const peakHoursData = currentData.reduce((acc, entry) => {
     const hour = new Date(entry.timestamp).getHours();
     if (!acc[hour]) {
       acc[hour] = {
@@ -142,6 +150,8 @@ export function RoomAnalytics({ room }: RoomAnalyticsProps) {
     );
   }
 
+  const capacityThreshold = Math.floor(room.maxCapacity * 0.8); // 80% capacity threshold
+
   return (
     <Card>
       <CardHeader>
@@ -165,6 +175,18 @@ export function RoomAnalytics({ room }: RoomAnalyticsProps) {
                     <YAxis domain={[0, room.maxCapacity]} />
                     <Tooltip content={customTooltip} />
                     <Legend />
+                    <ReferenceLine 
+                      y={capacityThreshold} 
+                      stroke="#ff9800" 
+                      strokeDasharray="3 3"
+                      label={{ value: '80% Capacity', position: 'right' }}
+                    />
+                    <ReferenceLine 
+                      y={room.maxCapacity} 
+                      stroke="#f44336" 
+                      strokeDasharray="3 3"
+                      label={{ value: 'Max Capacity', position: 'right' }}
+                    />
                     <Line
                       type="monotone"
                       dataKey="average"
@@ -199,6 +221,18 @@ export function RoomAnalytics({ room }: RoomAnalyticsProps) {
                     <YAxis domain={[0, room.maxCapacity]} />
                     <Tooltip content={customTooltip} />
                     <Legend />
+                    <ReferenceLine 
+                      y={capacityThreshold} 
+                      stroke="#ff9800" 
+                      strokeDasharray="3 3"
+                      label={{ value: '80% Capacity', position: 'right' }}
+                    />
+                    <ReferenceLine 
+                      y={room.maxCapacity} 
+                      stroke="#f44336" 
+                      strokeDasharray="3 3"
+                      label={{ value: 'Max Capacity', position: 'right' }}
+                    />
                     <Line
                       type="monotone"
                       dataKey="average"
@@ -239,6 +273,18 @@ export function RoomAnalytics({ room }: RoomAnalyticsProps) {
                     <YAxis domain={[0, room.maxCapacity]} />
                     <Tooltip formatter={tooltipFormatter} />
                     <Legend />
+                    <ReferenceLine 
+                      y={capacityThreshold} 
+                      stroke="#ff9800" 
+                      strokeDasharray="3 3"
+                      label={{ value: '80% Capacity', position: 'right' }}
+                    />
+                    <ReferenceLine 
+                      y={room.maxCapacity} 
+                      stroke="#f44336" 
+                      strokeDasharray="3 3"
+                      label={{ value: 'Max Capacity', position: 'right' }}
+                    />
                     <Bar
                       dataKey="average"
                       fill="#8884d8"
@@ -255,14 +301,34 @@ export function RoomAnalytics({ room }: RoomAnalyticsProps) {
           </TabsContent>
         </Tabs>
 
-        {resetEntries.length > 0 && (
-          <div className="mt-4 p-4 border rounded">
-            <h3 className="font-medium mb-2">Daily Reset Summary</h3>
-            <div className="text-sm text-muted-foreground">
-              Last reset: {new Date(resetEntries[resetEntries.length - 1].timestamp).toLocaleString()}
+        <div className="mt-4 space-y-2">
+          {lastReset && (
+            <div className="p-4 border rounded bg-muted/50">
+              <h3 className="font-medium mb-2">Data Statistics</h3>
+              <div className="text-sm space-y-1">
+                <p>Last Reset: {format(lastReset, 'MMM dd, yyyy hh:mm a')}</p>
+                <p>Data Range: {format(lastReset, 'MMM dd')} - Present</p>
+                {resetEntries.length > 0 && (
+                  <p>Total Resets: {resetEntries.length}</p>
+                )}
+              </div>
+            </div>
+          )}
+
+          <div className="p-4 border rounded bg-muted/50">
+            <h3 className="font-medium mb-2">Capacity Indicators</h3>
+            <div className="text-sm space-y-1">
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-[#f44336] rounded-full" />
+                <span>Max Capacity ({room.maxCapacity} children)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-[#ff9800] rounded-full" />
+                <span>80% Threshold ({capacityThreshold} children)</span>
+              </div>
             </div>
           </div>
-        )}
+        </div>
       </CardContent>
     </Card>
   );
