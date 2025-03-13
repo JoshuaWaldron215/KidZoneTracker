@@ -23,30 +23,25 @@ export function useNotifications() {
     return true;
   };
 
-  // Initialize notifications status on mount
+  // Initialize state based on current permissions
   useEffect(() => {
-    const checkNotificationStatus = async () => {
+    const initNotifications = async () => {
       if (!isSupported()) return;
 
       if (Notification.permission === 'granted') {
-        try {
-          const token = await requestNotificationPermission();
-          if (token) {
-            setFcmToken(token);
-            setIsEnabled(true);
-            const savedRooms = localStorage.getItem('subscribedRooms');
-            if (savedRooms) {
-              setSubscribedRooms(JSON.parse(savedRooms));
-            }
+        const token = await requestNotificationPermission();
+        if (token) {
+          setFcmToken(token);
+          setIsEnabled(true);
+          const savedRooms = localStorage.getItem('subscribedRooms');
+          if (savedRooms) {
+            setSubscribedRooms(JSON.parse(savedRooms));
           }
-        } catch (error) {
-          console.error('Error initializing notifications:', error);
-          setIsEnabled(false);
         }
       }
     };
 
-    checkNotificationStatus();
+    initNotifications();
   }, []);
 
   const requestPermission = async () => {
@@ -67,7 +62,6 @@ export function useNotifications() {
         return true;
       }
 
-      setIsEnabled(false);
       toast({
         title: "Notifications Disabled",
         description: "Please enable notifications in your browser settings to receive updates",
@@ -75,8 +69,7 @@ export function useNotifications() {
       });
       return false;
     } catch (error) {
-      console.error('Error requesting permission:', error);
-      setIsEnabled(false);
+      console.error('Error requesting notification permission:', error);
       toast({
         title: "Error",
         description: "Failed to enable notifications. Please try again.",

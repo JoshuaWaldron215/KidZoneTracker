@@ -38,21 +38,34 @@ export function RoomStatus({ room }: RoomStatusProps) {
     try {
       // If already subscribed, just unsubscribe
       if (isSubscribed) {
-        await unsubscribeFromRoom(room.id);
-        return;
-      }
-
-      // If notifications aren't enabled yet, request permission
-      if (!isEnabled) {
-        const enabled = await requestPermission();
-        if (enabled) {
-          await subscribeToRoom(room.id);
+        const success = await unsubscribeFromRoom(room.id);
+        if (!success) {
+          toast({
+            title: "Error",
+            description: "Failed to unsubscribe from notifications",
+            variant: "destructive",
+          });
         }
         return;
       }
 
-      // If enabled but not subscribed, subscribe
-      await subscribeToRoom(room.id);
+      // If not enabled, request permission first
+      if (!isEnabled) {
+        const permissionGranted = await requestPermission();
+        if (!permissionGranted) {
+          return; // Error toast already shown by requestPermission
+        }
+      }
+
+      // Try to subscribe
+      const success = await subscribeToRoom(room.id);
+      if (!success) {
+        toast({
+          title: "Error",
+          description: "Failed to subscribe to notifications",
+          variant: "destructive",
+        });
+      }
     } catch (error) {
       console.error('Error handling notification toggle:', error);
       toast({
@@ -64,9 +77,7 @@ export function RoomStatus({ room }: RoomStatusProps) {
   };
 
   useEffect(() => {
-    // Only show notifications if room is subscribed AND notifications are enabled
     if (isSubscribed && isEnabled && prevOccupancyRef.current !== room.currentOccupancy) {
-      // Calculate spots remaining
       const spotsRemaining = room.maxCapacity - room.currentOccupancy;
       const message = room.currentOccupancy >= room.maxCapacity 
         ? `${room.name} is now FULL`
