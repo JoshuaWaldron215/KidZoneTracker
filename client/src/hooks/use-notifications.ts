@@ -28,12 +28,18 @@ export function useNotifications() {
     const initNotifications = async () => {
       if (!isSupported()) return;
 
-      // Load saved subscriptions first
+      // Load saved subscriptions
       const savedRooms = localStorage.getItem('subscribedRooms');
       if (savedRooms) {
-        setSubscribedRooms(JSON.parse(savedRooms));
+        try {
+          setSubscribedRooms(JSON.parse(savedRooms));
+        } catch (e) {
+          console.error('Error parsing saved rooms:', e);
+          localStorage.removeItem('subscribedRooms');
+        }
       }
 
+      // Check if we already have permission
       if (Notification.permission === 'granted') {
         const token = await requestNotificationPermission();
         if (token) {
@@ -50,28 +56,28 @@ export function useNotifications() {
     if (!isSupported()) {
       toast({
         title: "Notifications Not Supported",
-        description: "Your browser doesn't support notifications. Please try using a modern browser.",
+        description: "Your browser doesn't support notifications",
         variant: "destructive",
       });
       return false;
     }
 
     try {
-      const token = await requestNotificationPermission();
-      if (token) {
-        setFcmToken(token);
-        setIsEnabled(true);
-        toast({
-          title: "Notifications Enabled",
-          description: "You can now subscribe to room updates",
-          duration: 3000,
-        });
-        return true;
+      // First request browser permission
+      const permission = await Notification.requestPermission();
+
+      if (permission === 'granted') {
+        const token = await requestNotificationPermission();
+        if (token) {
+          setFcmToken(token);
+          setIsEnabled(true);
+          return true;
+        }
       }
 
       toast({
         title: "Notifications Disabled",
-        description: "Please enable notifications in your browser settings to receive updates",
+        description: "Please enable notifications in your browser settings",
         variant: "destructive",
       });
       return false;
@@ -79,7 +85,7 @@ export function useNotifications() {
       console.error('Error requesting permission:', error);
       toast({
         title: "Error",
-        description: "Failed to enable notifications. Please try again.",
+        description: "Failed to enable notifications",
         variant: "destructive",
       });
       return false;
@@ -88,6 +94,7 @@ export function useNotifications() {
 
   const subscribeToRoom = async (roomId: number) => {
     if (!fcmToken || !isEnabled) {
+      console.error('No FCM token available or notifications not enabled');
       return false;
     }
 
@@ -97,26 +104,24 @@ export function useNotifications() {
         token: fcmToken,
       });
 
+      // Update local state
       const newSubscriptions = [...subscribedRooms, roomId];
       setSubscribedRooms(newSubscriptions);
       localStorage.setItem('subscribedRooms', JSON.stringify(newSubscriptions));
 
       toast({
-        title: "Subscribed Successfully",
+        title: "Room Subscribed",
         description: "You'll receive notifications for this room",
-        duration: 3000,
       });
       return true;
     } catch (error) {
-      console.error('Failed to subscribe to room:', error);
+      console.error('Failed to subscribe:', error);
       return false;
     }
   };
 
   const unsubscribeFromRoom = async (roomId: number) => {
-    if (!fcmToken || !isEnabled) {
-      return false;
-    }
+    if (!fcmToken || !isEnabled) return false;
 
     try {
       await apiRequest('POST', '/api/notifications/unsubscribe', {
@@ -124,18 +129,18 @@ export function useNotifications() {
         token: fcmToken,
       });
 
+      // Update local state
       const newSubscriptions = subscribedRooms.filter(id => id !== roomId);
       setSubscribedRooms(newSubscriptions);
       localStorage.setItem('subscribedRooms', JSON.stringify(newSubscriptions));
 
       toast({
-        title: "Unsubscribed Successfully",
+        title: "Room Unsubscribed",
         description: "You won't receive notifications for this room anymore",
-        duration: 3000,
       });
       return true;
     } catch (error) {
-      console.error('Failed to unsubscribe from room:', error);
+      console.error('Failed to unsubscribe:', error);
       return false;
     }
   };

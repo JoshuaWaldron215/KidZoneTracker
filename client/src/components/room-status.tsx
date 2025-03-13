@@ -25,6 +25,7 @@ export function RoomStatus({ room }: RoomStatusProps) {
     unsubscribeFromRoom 
   } = useNotifications();
   const prevOccupancyRef = useRef(room.currentOccupancy);
+
   const occupancyPercentage = (room.currentOccupancy / room.maxCapacity) * 100;
   const isSubscribed = subscribedRooms.includes(room.id);
 
@@ -41,18 +42,15 @@ export function RoomStatus({ room }: RoomStatusProps) {
       setTimeout(() => setIsAnimating(false), 1000);
 
       if (isSubscribed) {
-        // If already subscribed, just unsubscribe
         await unsubscribeFromRoom(room.id);
         return;
       }
 
-      // If notifications aren't enabled yet, request permission
       if (!isEnabled) {
-        const permissionGranted = await requestPermission();
-        if (!permissionGranted) return;
+        const granted = await requestPermission();
+        if (!granted) return;
       }
 
-      // Try to subscribe to this room
       await subscribeToRoom(room.id);
     } catch (error) {
       console.error('Error handling notification toggle:', error);
@@ -97,13 +95,9 @@ export function RoomStatus({ room }: RoomStatusProps) {
               title={isSubscribed ? "Unsubscribe from notifications" : "Subscribe to notifications"}
             >
               {isSubscribed ? (
-                <Bell className={`h-4 w-4 text-primary ${
-                  isAnimating ? 'animate-bell-ring' : ''
-                }`} />
+                <Bell className="h-4 w-4 text-primary" />
               ) : (
-                <BellOff className={`h-4 w-4 text-muted-foreground ${
-                  isAnimating ? 'animate-bell-ring' : ''
-                }`} />
+                <BellOff className="h-4 w-4 text-muted-foreground" />
               )}
               <span className="sr-only">
                 {isSubscribed ? "Unsubscribe from notifications" : "Subscribe to notifications"}
