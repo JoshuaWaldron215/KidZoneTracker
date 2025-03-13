@@ -41,16 +41,25 @@ export function RoomStatus({ room }: RoomStatusProps) {
       setIsAnimating(true);
       setTimeout(() => setIsAnimating(false), 1000);
 
+      console.log('Toggle clicked for room:', room.id);
+      console.log('Current state - Subscribed:', isSubscribed, 'Enabled:', isEnabled);
+
       if (isSubscribed) {
         await unsubscribeFromRoom(room.id);
         return;
       }
 
       if (!isEnabled) {
+        console.log('Requesting permission...');
         const granted = await requestPermission();
-        if (!granted) return;
+        if (!granted) {
+          console.log('Permission not granted');
+          return;
+        }
+        console.log('Permission granted');
       }
 
+      console.log('Subscribing to room:', room.id);
       await subscribeToRoom(room.id);
     } catch (error) {
       console.error('Error handling notification toggle:', error);

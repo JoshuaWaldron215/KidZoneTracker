@@ -32,17 +32,21 @@ export function useNotifications() {
       const savedRooms = localStorage.getItem('subscribedRooms');
       if (savedRooms) {
         try {
-          setSubscribedRooms(JSON.parse(savedRooms));
+          const rooms = JSON.parse(savedRooms);
+          console.log('Loaded saved room subscriptions:', rooms);
+          setSubscribedRooms(rooms);
         } catch (e) {
           console.error('Error parsing saved rooms:', e);
           localStorage.removeItem('subscribedRooms');
         }
       }
 
-      // Check if we already have permission
+      // Check existing permission
       if (Notification.permission === 'granted') {
+        console.log('Permission already granted, getting token...');
         const token = await requestNotificationPermission();
         if (token) {
+          console.log('Got FCM token:', token);
           setFcmToken(token);
           setIsEnabled(true);
         }
@@ -63,18 +67,25 @@ export function useNotifications() {
     }
 
     try {
-      // First request browser permission
-      const permission = await Notification.requestPermission();
+      console.log('Requesting notification permission...');
+      const permissionResult = await Notification.requestPermission();
+      console.log('Permission result:', permissionResult);
 
-      if (permission === 'granted') {
+      if (permissionResult === 'granted') {
         const token = await requestNotificationPermission();
         if (token) {
+          console.log('Setting FCM token:', token);
           setFcmToken(token);
           setIsEnabled(true);
+          toast({
+            title: "Notifications Enabled",
+            description: "You can now subscribe to room updates",
+          });
           return true;
         }
       }
 
+      setIsEnabled(false);
       toast({
         title: "Notifications Disabled",
         description: "Please enable notifications in your browser settings",
@@ -83,6 +94,7 @@ export function useNotifications() {
       return false;
     } catch (error) {
       console.error('Error requesting permission:', error);
+      setIsEnabled(false);
       toast({
         title: "Error",
         description: "Failed to enable notifications",
@@ -93,8 +105,11 @@ export function useNotifications() {
   };
 
   const subscribeToRoom = async (roomId: number) => {
+    console.log('Attempting to subscribe to room:', roomId);
+    console.log('Current state - Enabled:', isEnabled, 'Token:', fcmToken);
+
     if (!fcmToken || !isEnabled) {
-      console.error('No FCM token available or notifications not enabled');
+      console.error('Cannot subscribe - Token or notifications not enabled');
       return false;
     }
 
@@ -104,24 +119,34 @@ export function useNotifications() {
         token: fcmToken,
       });
 
-      // Update local state
       const newSubscriptions = [...subscribedRooms, roomId];
+      console.log('Updating subscriptions to:', newSubscriptions);
       setSubscribedRooms(newSubscriptions);
       localStorage.setItem('subscribedRooms', JSON.stringify(newSubscriptions));
 
       toast({
         title: "Room Subscribed",
-        description: "You'll receive notifications for this room",
+        description: `You'll receive notifications for room ${roomId}`,
       });
       return true;
     } catch (error) {
       console.error('Failed to subscribe:', error);
+      toast({
+        title: "Error",
+        description: "Failed to subscribe to room",
+        variant: "destructive",
+      });
       return false;
     }
   };
 
   const unsubscribeFromRoom = async (roomId: number) => {
-    if (!fcmToken || !isEnabled) return false;
+    console.log('Attempting to unsubscribe from room:', roomId);
+
+    if (!fcmToken || !isEnabled) {
+      console.error('Cannot unsubscribe - Token or notifications not enabled');
+      return false;
+    }
 
     try {
       await apiRequest('POST', '/api/notifications/unsubscribe', {
@@ -129,18 +154,23 @@ export function useNotifications() {
         token: fcmToken,
       });
 
-      // Update local state
       const newSubscriptions = subscribedRooms.filter(id => id !== roomId);
+      console.log('Updating subscriptions to:', newSubscriptions);
       setSubscribedRooms(newSubscriptions);
       localStorage.setItem('subscribedRooms', JSON.stringify(newSubscriptions));
 
       toast({
         title: "Room Unsubscribed",
-        description: "You won't receive notifications for this room anymore",
+        description: `You won't receive notifications for room ${roomId} anymore`,
       });
       return true;
     } catch (error) {
       console.error('Failed to unsubscribe:', error);
+      toast({
+        title: "Error",
+        description: "Failed to unsubscribe from room",
+        variant: "destructive",
+      });
       return false;
     }
   };
