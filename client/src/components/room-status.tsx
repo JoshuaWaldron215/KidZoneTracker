@@ -2,7 +2,7 @@ import { AlertCircle, Users, Bell, BellOff } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useNotifications } from "@/hooks/use-notifications";
@@ -15,6 +15,7 @@ interface RoomStatusProps {
 export function RoomStatus({ room }: RoomStatusProps) {
   const { toast } = useToast();
   const isMobile = useIsMobile();
+  const [isAnimating, setIsAnimating] = useState(false);
   const { 
     isSupported, 
     isEnabled, 
@@ -36,6 +37,9 @@ export function RoomStatus({ room }: RoomStatusProps) {
 
   const handleNotificationToggle = async () => {
     try {
+      setIsAnimating(true);
+      setTimeout(() => setIsAnimating(false), 1000);
+
       // If already subscribed, just unsubscribe
       if (isSubscribed) {
         const success = await unsubscribeFromRoom(room.id);
@@ -102,14 +106,20 @@ export function RoomStatus({ room }: RoomStatusProps) {
             <Button
               variant="ghost"
               size="sm"
-              className="ml-2"
+              className={`ml-2 transition-transform duration-300 ${
+                isAnimating ? 'animate-bell-ring' : ''
+              } hover:scale-110 active:scale-95`}
               onClick={handleNotificationToggle}
               title={isSubscribed ? "Unsubscribe from notifications" : "Subscribe to notifications"}
             >
               {isSubscribed ? (
-                <Bell className="h-4 w-4 text-primary" />
+                <Bell className={`h-4 w-4 text-primary ${
+                  isAnimating ? 'animate-bell-ring' : ''
+                }`} />
               ) : (
-                <BellOff className="h-4 w-4 text-muted-foreground" />
+                <BellOff className={`h-4 w-4 text-muted-foreground ${
+                  isAnimating ? 'animate-bell-ring' : ''
+                }`} />
               )}
               <span className="sr-only">
                 {isSubscribed ? "Unsubscribe from notifications" : "Subscribe to notifications"}
