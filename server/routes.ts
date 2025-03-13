@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
-import { loginSchema, updateOccupancySchema, insertNotificationSchema, insertUserSchema } from "@shared/schema";
+import { loginSchema, updateOccupancySchema, insertNotificationSchema, insertUserSchema, insertMemberSchema, loginMemberSchema } from "@shared/schema";
 import { sendRoomFullNotification, sendRoomAvailableNotification } from "./email";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
@@ -84,6 +84,113 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       res.status(400).json({ message: "Invalid request" });
+    }
+  });
+
+  // Add new member routes after existing auth routes
+  app.post("/api/members/register", async (req, res) => {
+    try {
+      const data = insertMemberSchema.parse(req.body);
+
+      // Check if member exists
+      const existingMember = await storage.getMemberByEmail(data.email);
+      if (existingMember) {
+        return res.status(400).json({ message: "Email already in use" });
+      }
+
+      const member = await storage.createMember(data);
+      const token = jwt.sign({ id: member.id }, JWT_SECRET);
+
+      // Remove password from response
+      const { password, ...safeMember } = member;
+      res.json({ token, member: safeMember });
+    } catch (error) {
+      console.error('Member registration error:', error);
+      res.status(400).json({ 
+        message: "Failed to create account",
+        details: error instanceof Error ? error.message : undefined 
+      });
+    }
+  });
+
+  app.post("/api/members/login", async (req, res) => {
+    try {
+      const data = loginMemberSchema.parse(req.body);
+      const member = await storage.getMemberByEmail(data.email);
+
+      if (!member || !await bcrypt.compare(data.password, member.password)) {
+        return res.status(401).json({ message: "Invalid email or password" });
+      }
+
+      const token = jwt.sign({ id: member.id }, JWT_SECRET);
+
+      // Remove password from response
+      const { password, ...safeMember } = member;
+      res.json({ token, member: safeMember });
+    } catch (error) {
+      console.error('Member login error:', error);
+      res.status(400).json({ message: "Invalid request" });
+    }
+  });
+
+  // Add member authentication middleware
+  const authenticateMember = async (req: any, res: any, next: any) => {
+    try {
+      const token = req.headers.authorization?.split(" ")[1];
+      if (!token) {
+        return res.status(401).json({ message: "No token provided" });
+      }
+
+      const decoded = jwt.verify(token, JWT_SECRET) as { id: number };
+      const member = await storage.getMember(decoded.id);
+
+      if (!member) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+
+      req.member = member;
+      next();
+    } catch (error) {
+      res.status(401).json({ message: "Invalid token" });
+    }
+  };
+
+  // Add member routes
+  app.get("/api/members/favorites", authenticateMember, async (req: any, res) => {
+    try {
+      const favorites = await storage.getMemberFavorites(req.member.id);
+      res.json(favorites);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch favorites" });
+    }
+  });
+
+  app.post("/api/members/favorites/:roomId", authenticateMember, async (req: any, res) => {
+    try {
+      const roomId = parseInt(req.params.roomId);
+      await storage.addFavoriteRoom(req.member.id, roomId);
+      res.json({ message: "Room added to favorites" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to add favorite" });
+    }
+  });
+
+  app.delete("/api/members/favorites/:roomId", authenticateMember, async (req: any, res) => {
+    try {
+      const roomId = parseInt(req.params.roomId);
+      await storage.removeFavoriteRoom(req.member.id, roomId);
+      res.json({ message: "Room removed from favorites" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to remove favorite" });
+    }
+  });
+
+  app.put("/api/members/preferences", authenticateMember, async (req: any, res) => {
+    try {
+      await storage.updateMemberPreferences(req.member.id, req.body);
+      res.json({ message: "Preferences updated" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update preferences" });
     }
   });
 

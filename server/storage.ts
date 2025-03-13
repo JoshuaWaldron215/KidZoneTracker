@@ -1,7 +1,7 @@
 import { db } from "./db";
 import { eq, and, gte, lt, asc } from "drizzle-orm";
-import { users, rooms, notifications, roomHistory, roomSubscriptions } from "@shared/schema";
-import type { InsertUser, InsertRoom, InsertNotification, InsertRoomHistory, User, Room, Notification, RoomSubscription, RoomHistory } from "@shared/schema";
+import { users, rooms, notifications, roomHistory, roomSubscriptions, members, memberFavorites } from "@shared/schema";
+import type { InsertUser, InsertRoom, InsertNotification, InsertRoomHistory, User, Room, Notification, RoomSubscription, RoomHistory, Member, InsertMember, MemberFavorite } from "@shared/schema";
 import bcrypt from "bcryptjs";
 
 export interface IStorage {
@@ -32,6 +32,15 @@ export interface IStorage {
   getNotificationSubscriptions(roomId: number): Promise<string[]>;
   addNotificationSubscription(roomId: number, token: string): Promise<void>;
   removeNotificationSubscription(roomId: number, token: string): Promise<void>;
+
+  // Member operations
+  getMember(id: number): Promise<Member | undefined>;
+  getMemberByEmail(email: string): Promise<Member | undefined>;
+  createMember(member: InsertMember): Promise<Member>;
+  getMemberFavorites(memberId: number): Promise<number[]>;
+  addFavoriteRoom(memberId: number, roomId: number): Promise<void>;
+  removeFavoriteRoom(memberId: number, roomId: number): Promise<void>;
+  updateMemberPreferences(memberId: number, preferences: any): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -263,6 +272,69 @@ export class DatabaseStorage implements IStorage {
           eq(roomSubscriptions.fcmToken, token)
         )
       );
+  }
+
+  // Member operations
+  async getMember(id: number): Promise<Member | undefined> {
+    const [member] = await db.select().from(members).where(eq(members.id, id));
+    return member;
+  }
+
+  async getMemberByEmail(email: string): Promise<Member | undefined> {
+    const [member] = await db.select().from(members).where(eq(members.email, email));
+    return member;
+  }
+
+  async createMember(insertMember: InsertMember): Promise<Member> {
+    // Hash password before storing
+    const hashedPassword = await bcrypt.hash(insertMember.password, 10);
+
+    const [member] = await db
+      .insert(members)
+      .values({
+        ...insertMember,
+        password: hashedPassword,
+      })
+      .returning();
+
+    return member;
+  }
+
+  async getMemberFavorites(memberId: number): Promise<number[]> {
+    const favorites = await db
+      .select()
+      .from(memberFavorites)
+      .where(eq(memberFavorites.memberId, memberId));
+
+    return favorites.map(f => f.roomId);
+  }
+
+  async addFavoriteRoom(memberId: number, roomId: number): Promise<void> {
+    await db
+      .insert(memberFavorites)
+      .values({ memberId, roomId })
+      .onConflictDoNothing();
+  }
+
+  async removeFavoriteRoom(memberId: number, roomId: number): Promise<void> {
+    await db
+      .delete(memberFavorites)
+      .where(
+        and(
+          eq(memberFavorites.memberId, memberId),
+          eq(memberFavorites.roomId, roomId)
+        )
+      );
+  }
+
+  async updateMemberPreferences(memberId: number, preferences: any): Promise<void> {
+    await db
+      .update(members)
+      .set({
+        notificationPreferences: preferences,
+        updatedAt: new Date(),
+      })
+      .where(eq(members.id, memberId));
   }
 }
 
