@@ -140,6 +140,34 @@ export class DatabaseStorage implements IStorage {
     const [currentRoom] = await db.select().from(rooms).where(eq(rooms.id, roomId));
     if (!currentRoom) throw new Error("Room not found");
 
+    // Get today's history for summary
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+
+    const todayHistory = await db
+      .select()
+      .from(roomHistory)
+      .where(
+        and(
+          eq(roomHistory.roomId, roomId),
+          gte(roomHistory.timestamp, todayStart),
+          lt(roomHistory.timestamp, todayEnd)
+        )
+      );
+
+    // Calculate daily summary
+    const maxOccupancy = Math.max(
+      currentRoom.currentOccupancy,
+      ...todayHistory.map(h => h.newOccupancy)
+    );
+
+    const totalUpdates = todayHistory.length;
+    const avgOccupancy = totalUpdates > 0
+      ? todayHistory.reduce((sum, h) => sum + h.newOccupancy, 0) / totalUpdates
+      : 0;
+
     // Archive current day's data with summary
     await db.insert(roomHistory).values({
       roomId,
@@ -149,7 +177,9 @@ export class DatabaseStorage implements IStorage {
       timestamp: new Date(),
       isReset: true,
       dailySummary: {
-        maxOccupancy: currentRoom.currentOccupancy,
+        maxOccupancy,
+        avgOccupancy: Math.round(avgOccupancy),
+        totalUpdates,
         lastUpdated: new Date()
       }
     });
@@ -279,9 +309,16 @@ initializeDefaultData();
 // Example using node-cron (needs to be installed: npm install node-cron)
 import cron from 'node-cron';
 
-cron.schedule('0 0 * * *', () => { // Runs every day at midnight
+// Reset at midnight
+cron.schedule('0 0 * * *', () => {
   Promise.all([
     storage.resetAllRoomsData(),
     storage.archiveOldData()
   ]).catch(error => console.error('Error resetting or archiving data:', error));
+});
+
+// Archive old data weekly (Sunday at 1 AM)
+cron.schedule('0 1 * * 0', () => {
+  storage.archiveOldData()
+    .catch(error => console.error('Error archiving old data:', error));
 });

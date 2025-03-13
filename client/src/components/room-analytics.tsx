@@ -9,6 +9,7 @@ import {
   ResponsiveContainer,
   BarChart,
   Bar,
+  Legend,
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -22,14 +23,14 @@ export function RoomAnalytics({ room }: RoomAnalyticsProps) {
   const { data: history = [], isLoading } = useQuery<RoomHistory[]>({
     queryKey: [`/api/rooms/${room.id}/history`],
     refetchInterval: 1000 * 60 * 5, // Refresh every 5 minutes
-    select: (data) => {
-      // Filter out reset entries for regular analytics
-      return data.filter(entry => !entry.isReset);
-    }
   });
 
+  // Separate regular updates from reset data
+  const regularUpdates = history.filter(entry => !entry.isReset);
+  const resetEntries = history.filter(entry => entry.isReset);
+
   // Process data for daily view
-  const dailyData = history.reduce((acc, entry) => {
+  const dailyData = regularUpdates.reduce((acc, entry) => {
     const date = new Date(entry.timestamp).toLocaleDateString();
     if (!acc[date]) {
       acc[date] = {
@@ -46,8 +47,30 @@ export function RoomAnalytics({ room }: RoomAnalyticsProps) {
     return acc;
   }, {} as Record<string, { date: string; average: number; count: number; max: number }>);
 
+  // Process data for weekly view
+  const weeklyData = regularUpdates.reduce((acc, entry) => {
+    const date = new Date(entry.timestamp);
+    const weekStart = new Date(date);
+    weekStart.setDate(date.getDate() - date.getDay());
+    const weekKey = weekStart.toLocaleDateString();
+
+    if (!acc[weekKey]) {
+      acc[weekKey] = {
+        week: `Week of ${weekStart.toLocaleDateString()}`,
+        average: entry.newOccupancy,
+        count: 1,
+        max: entry.newOccupancy,
+      };
+    } else {
+      acc[weekKey].average += entry.newOccupancy;
+      acc[weekKey].count += 1;
+      acc[weekKey].max = Math.max(acc[weekKey].max, entry.newOccupancy);
+    }
+    return acc;
+  }, {} as Record<string, { week: string; average: number; count: number; max: number }>);
+
   // Process data for peak hours
-  const peakHoursData = history.reduce((acc, entry) => {
+  const peakHoursData = regularUpdates.reduce((acc, entry) => {
     const hour = new Date(entry.timestamp).getHours();
     if (!acc[hour]) {
       acc[hour] = {
@@ -68,10 +91,17 @@ export function RoomAnalytics({ room }: RoomAnalyticsProps) {
     return `${standardHour}:00 ${period}`;
   };
 
-  const chartData = Object.values(dailyData).map(day => ({
+  // Format data for charts
+  const dailyChartData = Object.values(dailyData).map(day => ({
     date: day.date,
     average: Math.round(day.average / day.count),
     max: day.max,
+  }));
+
+  const weeklyChartData = Object.values(weeklyData).map(week => ({
+    week: week.week,
+    average: Math.round(week.average / week.count),
+    max: week.max,
   }));
 
   const peakData = Array.from({ length: 24 }, (_, i) => {
@@ -88,7 +118,11 @@ export function RoomAnalytics({ room }: RoomAnalyticsProps) {
       return (
         <div className="bg-background border rounded p-2 shadow-lg">
           <p className="font-medium">{label}</p>
-          <p className="text-sm">{`${payload[0].value} children`}</p>
+          {payload.map((entry: any) => (
+            <p key={entry.name} className="text-sm">
+              {entry.name}: {entry.value} children
+            </p>
+          ))}
         </div>
       );
     }
@@ -114,20 +148,23 @@ export function RoomAnalytics({ room }: RoomAnalyticsProps) {
         <CardTitle>Room Analytics</CardTitle>
       </CardHeader>
       <CardContent>
-        <Tabs defaultValue="occupancy">
-          <TabsList>
-            <TabsTrigger value="occupancy">Occupancy Trends</TabsTrigger>
+        <Tabs defaultValue="daily">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="daily">Daily</TabsTrigger>
+            <TabsTrigger value="weekly">Weekly</TabsTrigger>
             <TabsTrigger value="peak">Peak Hours</TabsTrigger>
           </TabsList>
-          <TabsContent value="occupancy" className="pt-4">
+
+          <TabsContent value="daily" className="pt-4">
             <div className="h-[300px]">
-              {chartData.length > 0 ? (
+              {dailyChartData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={chartData}>
+                  <LineChart data={dailyChartData}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="date" />
                     <YAxis domain={[0, room.maxCapacity]} />
                     <Tooltip content={customTooltip} />
+                    <Legend />
                     <Line
                       type="monotone"
                       dataKey="average"
@@ -146,11 +183,46 @@ export function RoomAnalytics({ room }: RoomAnalyticsProps) {
                 </ResponsiveContainer>
               ) : (
                 <div className="flex items-center justify-center h-full text-muted-foreground">
-                  No historical data available
+                  No daily data available
                 </div>
               )}
             </div>
           </TabsContent>
+
+          <TabsContent value="weekly" className="pt-4">
+            <div className="h-[300px]">
+              {weeklyChartData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={weeklyChartData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="week" />
+                    <YAxis domain={[0, room.maxCapacity]} />
+                    <Tooltip content={customTooltip} />
+                    <Legend />
+                    <Line
+                      type="monotone"
+                      dataKey="average"
+                      stroke="#8884d8"
+                      name="Weekly Average"
+                      strokeWidth={2}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="max"
+                      stroke="#82ca9d"
+                      name="Weekly Peak"
+                      strokeWidth={2}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-full text-muted-foreground">
+                  No weekly data available
+                </div>
+              )}
+            </div>
+          </TabsContent>
+
           <TabsContent value="peak" className="pt-4">
             <div className="h-[300px]">
               {peakData.some(data => data.average > 0) ? (
@@ -166,6 +238,7 @@ export function RoomAnalytics({ room }: RoomAnalyticsProps) {
                     />
                     <YAxis domain={[0, room.maxCapacity]} />
                     <Tooltip formatter={tooltipFormatter} />
+                    <Legend />
                     <Bar
                       dataKey="average"
                       fill="#8884d8"
@@ -181,6 +254,15 @@ export function RoomAnalytics({ room }: RoomAnalyticsProps) {
             </div>
           </TabsContent>
         </Tabs>
+
+        {resetEntries.length > 0 && (
+          <div className="mt-4 p-4 border rounded">
+            <h3 className="font-medium mb-2">Daily Reset Summary</h3>
+            <div className="text-sm text-muted-foreground">
+              Last reset: {new Date(resetEntries[resetEntries.length - 1].timestamp).toLocaleString()}
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
