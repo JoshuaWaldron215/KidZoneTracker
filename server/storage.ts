@@ -19,6 +19,8 @@ export interface IStorage {
   updateRoomOccupancy(id: number, occupancy: number): Promise<Room>;
   updateRoomStatus(id: number, isOpen: boolean): Promise<Room>;
   getRoomHistory(roomId: number): Promise<RoomHistory[]>;
+  resetDailyData(roomId: number): Promise<void>;
+  resetAllRoomsData(): Promise<void>;
 
   // Notification operations
   getNotifications(roomId: number): Promise<Notification[]>;
@@ -125,6 +127,38 @@ export class DatabaseStorage implements IStorage {
       .orderBy(asc(roomHistory.timestamp));
   }
 
+  async resetDailyData(roomId: number): Promise<void> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Archive current day's data
+    await db.insert(roomHistory).values({
+      roomId,
+      userId: 1, // System user
+      previousOccupancy: 0,
+      newOccupancy: 0,
+      timestamp: new Date(),
+      isReset: true
+    });
+
+    // Reset room occupancy
+    await db
+      .update(rooms)
+      .set({
+        currentOccupancy: 0,
+        updatedAt: new Date(),
+      })
+      .where(eq(rooms.id, roomId));
+  }
+
+  async resetAllRoomsData(): Promise<void> {
+    const allRooms = await this.getRooms();
+    for (const room of allRooms) {
+      await this.resetDailyData(room.id);
+    }
+  }
+
+
   // Notification operations
   async getNotifications(roomId: number): Promise<Notification[]> {
     return await db
@@ -212,3 +246,11 @@ async function initializeDefaultData() {
 
 // Initialize default data
 initializeDefaultData();
+
+// Add a mechanism to run resetAllRoomsData at midnight (requires a scheduling library)
+// Example using node-cron (needs to be installed: npm install node-cron)
+// import cron from 'node-cron';
+
+// cron.schedule('0 0 * * *', () => { // Runs every day at midnight
+//   storage.resetAllRoomsData().catch(error => console.error('Error resetting data:', error));
+// });

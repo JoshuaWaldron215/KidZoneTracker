@@ -208,7 +208,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Add new room history route after other room routes
+  // Add new route for managing room history
   app.get("/api/rooms/:id/history", authenticateUser, async (req, res) => {
     try {
       const roomId = parseInt(req.params.id);
@@ -217,6 +217,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Failed to get room history:', error);
       res.status(500).json({ message: "Failed to fetch room history" });
+    }
+  });
+
+  // Add new route for resetting room data
+  app.post("/api/rooms/reset", authenticateUser, requireRole(['admin', 'supervisor']), async (req, res) => {
+    try {
+      await storage.resetAllRoomsData();
+
+      // Broadcast update to all connected clients
+      await broadcastRoomUpdate();
+
+      res.json({ message: "All rooms reset successfully" });
+    } catch (error) {
+      console.error('Failed to reset rooms:', error);
+      res.status(500).json({ message: "Failed to reset rooms" });
     }
   });
 
