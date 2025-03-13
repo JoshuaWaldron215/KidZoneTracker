@@ -28,7 +28,7 @@ export function useNotifications() {
     const checkNotificationStatus = async () => {
       if (!isSupported()) return;
 
-      // Check if we already have permission
+      // If we already have permission, try to get token
       if (Notification.permission === 'granted') {
         try {
           const token = await requestNotificationPermission();
@@ -42,7 +42,10 @@ export function useNotifications() {
           }
         } catch (error) {
           console.error('Error initializing notifications:', error);
+          setIsEnabled(false);
         }
+      } else {
+        setIsEnabled(false);
       }
     };
 
@@ -50,36 +53,24 @@ export function useNotifications() {
   }, []);
 
   const requestPermission = async () => {
+    if (!isSupported()) {
+      toast({
+        title: "Notifications Not Supported",
+        description: "Your browser doesn't support notifications. Please try using a modern browser.",
+        variant: "destructive",
+      });
+      return false;
+    }
+
     try {
-      if (!isSupported()) {
-        toast({
-          title: "Notifications Not Supported",
-          description: "Your browser doesn't support notifications. Please try using a modern browser.",
-          variant: "destructive",
-        });
-        return false;
-      }
-
-      // Reset state before requesting
-      setIsEnabled(false);
-      setFcmToken(null);
-
-      // Show native browser permission prompt
-      const permission = await window.Notification.requestPermission();
-      console.log('Browser permission result:', permission);
+      // Request browser permission
+      const permission = await Notification.requestPermission();
 
       if (permission === 'granted') {
-        // Get FCM token only after permission is granted
         const token = await requestNotificationPermission();
         if (token) {
           setFcmToken(token);
           setIsEnabled(true);
-
-          const savedRooms = localStorage.getItem('subscribedRooms');
-          if (savedRooms) {
-            setSubscribedRooms(JSON.parse(savedRooms));
-          }
-
           toast({
             title: "Notifications Enabled",
             description: "You'll receive updates about room capacity changes",
@@ -89,6 +80,7 @@ export function useNotifications() {
         }
       }
 
+      setIsEnabled(false);
       toast({
         title: "Notifications Disabled",
         description: "Please enable notifications in your browser settings to receive updates",
@@ -97,6 +89,7 @@ export function useNotifications() {
       return false;
     } catch (error) {
       console.error('Error requesting permission:', error);
+      setIsEnabled(false);
       toast({
         title: "Error",
         description: "Failed to enable notifications. Please try again.",
@@ -107,9 +100,9 @@ export function useNotifications() {
   };
 
   const subscribeToRoom = async (roomId: number) => {
-    if (!fcmToken) {
-      console.error('No FCM token available');
-      return;
+    if (!fcmToken || !isEnabled) {
+      console.error('No FCM token available or notifications not enabled');
+      return false;
     }
 
     try {
@@ -127,6 +120,7 @@ export function useNotifications() {
         description: "You'll receive notifications when this room's capacity changes",
         duration: 3000,
       });
+      return true;
     } catch (error) {
       console.error('Failed to subscribe to room:', error);
       toast({
@@ -134,13 +128,13 @@ export function useNotifications() {
         description: "Failed to subscribe to notifications. Please try again.",
         variant: "destructive",
       });
+      return false;
     }
   };
 
   const unsubscribeFromRoom = async (roomId: number) => {
-    if (!fcmToken) {
-      console.error('No FCM token available');
-      return;
+    if (!fcmToken || !isEnabled) {
+      return false;
     }
 
     try {
@@ -158,6 +152,7 @@ export function useNotifications() {
         description: "You won't receive notifications for this room anymore",
         duration: 3000,
       });
+      return true;
     } catch (error) {
       console.error('Failed to unsubscribe from room:', error);
       toast({
@@ -165,6 +160,7 @@ export function useNotifications() {
         description: "Failed to unsubscribe from notifications. Please try again.",
         variant: "destructive",
       });
+      return false;
     }
   };
 

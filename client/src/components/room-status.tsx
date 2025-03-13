@@ -36,7 +36,7 @@ export function RoomStatus({ room }: RoomStatusProps) {
 
   const handleNotificationToggle = async () => {
     try {
-      // If notifications are already enabled, just toggle subscription
+      // If notifications are enabled, handle subscription toggle
       if (isEnabled) {
         if (isSubscribed) {
           await unsubscribeFromRoom(room.id);
@@ -77,10 +77,6 @@ export function RoomStatus({ room }: RoomStatusProps) {
         variant: room.currentOccupancy >= room.maxCapacity ? "destructive" : "default",
       });
 
-      // Save the current occupancy after showing notification
-      prevOccupancyRef.current = room.currentOccupancy;
-    } else if (!isSubscribed) {
-      // Reset the previous occupancy when unsubscribed
       prevOccupancyRef.current = room.currentOccupancy;
     }
   }, [room.currentOccupancy, room.maxCapacity, room.name, isSubscribed, isEnabled, toast]);
