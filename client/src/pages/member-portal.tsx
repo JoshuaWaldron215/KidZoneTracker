@@ -266,13 +266,17 @@ export default function MemberPortal() {
                         className={`
                           transition-transform hover:scale-110
                           ${toggleFavorite.isPending ? 'opacity-50' : ''}
+                          ${favorites.includes(room.id) ? 'bg-red-50' : ''}
                         `}
                         disabled={toggleFavorite.isPending}
                       >
                         <Heart 
                           className={`
                             h-5 w-5 transition-all duration-300
-                            ${favorites.includes(room.id) ? 'fill-current text-red-500 scale-110' : 'scale-100'}
+                            ${favorites.includes(room.id) 
+                              ? 'fill-current text-red-500 scale-110' 
+                              : 'text-muted-foreground scale-100 hover:text-red-500'
+                            }
                           `}
                         />
                       </Button>
