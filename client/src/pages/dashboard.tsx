@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, Users } from "lucide-react";
 import type { Room } from "@shared/schema";
 
 export default function Dashboard() {
@@ -81,15 +81,25 @@ export default function Dashboard() {
           </div>
           <div className="flex gap-4">
             {hasPermission(["admin", "supervisor"]) && (
-              <Button 
-                variant="outline" 
-                onClick={handleReset}
-                disabled={resetData.isPending}
-                className="flex items-center gap-2"
-              >
-                <RefreshCw className={`h-4 w-4 ${resetData.isPending ? 'animate-spin' : ''}`} />
-                Reset Data
-              </Button>
+              <>
+                <Button 
+                  variant="outline" 
+                  onClick={handleReset}
+                  disabled={resetData.isPending}
+                  className="flex items-center gap-2"
+                >
+                  <RefreshCw className={`h-4 w-4 ${resetData.isPending ? 'animate-spin' : ''}`} />
+                  Reset Data
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setLocation("/members")}
+                  className="flex items-center gap-2"
+                >
+                  <Users className="h-4 w-4" />
+                  Manage Members
+                </Button>
+              </>
             )}
             {hasPermission(["admin"]) && (
               <Button variant="outline" onClick={() => setLocation("/staff")}>

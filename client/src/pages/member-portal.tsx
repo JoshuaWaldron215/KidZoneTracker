@@ -89,8 +89,9 @@ export default function MemberPortal() {
 
   const toggleFavorite = useMutation({
     mutationFn: async (roomId: number) => {
+      const method = favorites.includes(roomId) ? "DELETE" : "POST";
       const response = await apiRequest(
-        favorites.includes(roomId) ? "DELETE" : "POST",
+        method,
         `/api/members/favorites/${roomId}`,
         undefined,
         {
@@ -103,6 +104,12 @@ export default function MemberPortal() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/members/favorites"] });
+      toast({
+        title: "Success",
+        description: favorites.includes(roomId) ? 
+          "Room removed from favorites" : 
+          "Room added to favorites",
+      });
     },
     onError: () => {
       toast({
