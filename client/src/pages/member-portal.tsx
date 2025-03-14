@@ -102,13 +102,16 @@ export default function MemberPortal() {
           },
         }
       );
-      return response.json();
+      if (!response.ok) {
+        throw new Error('Failed to update favorites');
+      }
+      return { roomId, method };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/members/favorites"] });
       toast({
         title: "Success",
-        description: favorites.includes(roomId) ? 
+        description: data.method === "DELETE" ? 
           "Room removed from favorites" : 
           "Room added to favorites",
       });
@@ -116,7 +119,7 @@ export default function MemberPortal() {
     onError: () => {
       toast({
         title: "Error",
-        description: "Failed to update favorite rooms",
+        description: "Failed to update favorite rooms. Please try again.",
         variant: "destructive",
       });
     },
