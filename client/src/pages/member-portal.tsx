@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
-import { Bell, Heart, RefreshCcw } from "lucide-react";
+import { Bell, Heart, RefreshCcw, Send } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useWebSocket } from "@/hooks/use-websocket";
@@ -49,6 +49,12 @@ export default function MemberPortal() {
         variant: "destructive",
       });
     }
+  });
+
+  // Add phone status query
+  const { data: phoneStatus } = useQuery<PhoneStatus>({
+    queryKey: ["/api/members/phone-status"],
+    enabled: notificationPrefs.sms && !!member?.phone,
   });
 
   // Sort rooms to show favorites first (safely handle undefined favorites)
@@ -102,6 +108,80 @@ export default function MemberPortal() {
       toast({
         title: "Error",
         description: "Failed to update favorite rooms",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updatePreferences = useMutation({
+    mutationFn: async (prefs: typeof notificationPrefs) => {
+      console.log('Sending preferences update:', prefs);
+      const response = await apiRequest(
+        "POST",
+        "/api/members/preferences",
+        prefs,
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("memberToken")}`,
+            'Content-Type': 'application/json'
+          },
+        }
+      );
+      const data = await response.json();
+
+      // If phone verification required, show message
+      if (data.requiresVerification) {
+        toast({
+          title: "Phone Verification Required",
+          description: "Your phone number needs to be verified before enabling SMS notifications. Please contact support to verify your number.",
+          variant: "destructive",
+        });
+        // Revert SMS toggle
+        return { ...prefs, sms: false };
+      }
+
+      return data;
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Notification preferences updated",
+      });
+    },
+    onError: (error) => {
+      console.error('Failed to update preferences:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update preferences",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const testSMS = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest(
+        "POST",
+        "/api/members/test-sms",
+        undefined,
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("memberToken")}`,
+          },
+        }
+      );
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Test SMS Sent",
+        description: "Check your phone for a test message",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to send test SMS. Please verify your phone number.",
         variant: "destructive",
       });
     },
@@ -244,6 +324,7 @@ export default function MemberPortal() {
                       }}
                     />
                   </div>
+
                   <div className="flex items-center justify-between">
                     <div className="space-y-0.5">
                       <label className="font-medium">SMS Notifications</label>
@@ -278,6 +359,7 @@ export default function MemberPortal() {
                       )}
                     </div>
                   </div>
+
                   <div className="flex items-center justify-between">
                     <div className="space-y-0.5">
                       <label className="font-medium">Favorite Room Alerts</label>
@@ -294,6 +376,7 @@ export default function MemberPortal() {
                       }}
                     />
                   </div>
+
                   <div className="space-y-2">
                     <label className="font-medium">Capacity Threshold</label>
                     <p className="text-sm text-muted-foreground mb-2">
@@ -318,18 +401,6 @@ export default function MemberPortal() {
                     </div>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-
-            <Card className="mt-6">
-              <CardHeader>
-                <CardTitle>Favorite Rooms</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground">
-                  Click the heart icon on any room card to add it to your favorites.
-                  You'll receive priority notifications for your favorite rooms.
-                </p>
               </CardContent>
             </Card>
           </div>
