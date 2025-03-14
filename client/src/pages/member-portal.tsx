@@ -10,6 +10,8 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useWebSocket } from "@/hooks/use-websocket";
 import type { Room, Member, PhoneStatus } from "@shared/schema";
+import { Progress } from "@/components/ui/progress"; // Import Progress component
+
 
 export default function MemberPortal() {
   const [, setLocation] = useLocation();
@@ -275,11 +277,33 @@ export default function MemberPortal() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <span>Current Occupancy:</span>
-                      <span className="font-medium">{room.currentOccupancy}</span>
+                  <div className="space-y-4">
+                    <div>
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-sm text-muted-foreground">Capacity</span>
+                        <span className="text-sm font-medium">
+                          {room.currentOccupancy} / {room.maxCapacity}
+                        </span>
+                      </div>
+                      <Progress 
+                        value={(room.currentOccupancy / room.maxCapacity) * 100}
+                        className={`h-2 ${
+                          room.currentOccupancy >= room.maxCapacity
+                            ? 'bg-destructive/20'
+                            : room.currentOccupancy >= room.maxCapacity * 0.8
+                            ? 'bg-yellow-200'
+                            : 'bg-primary/20'
+                        }`}
+                        indicatorClassName={`${
+                          room.currentOccupancy >= room.maxCapacity
+                            ? 'bg-destructive'
+                            : room.currentOccupancy >= room.maxCapacity * 0.8
+                            ? 'bg-yellow-500'
+                            : 'bg-primary'
+                        }`}
+                      />
                     </div>
+
                     <div className="flex justify-between items-center">
                       <span>Available Spots:</span>
                       <span className="font-medium">

@@ -13,6 +13,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { Progress } from "@/components/ui/progress";
 
 const loginSchema = z.object({
   email: z.string().email("Please enter a valid email"),
@@ -194,8 +195,8 @@ export default function Portal() {
                               <Input type="email" {...field} />
                             </FormControl>
                             <FormMessage className="text-destructive">
-                              {registerMutation.error?.message === "Email already in use" && 
-                               "This email is already registered. Please login instead."}
+                              {registerMutation.error?.message === "Email already in use" &&
+                                "This email is already registered. Please login instead."}
                             </FormMessage>
                           </FormItem>
                         )}
@@ -256,26 +257,51 @@ export default function Portal() {
                 <CardTitle>{room.name}</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span>Current Occupancy:</span>
-                    <span className="font-medium">{room.currentOccupancy}</span>
+                <div className="space-y-4">
+                  <div>
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-sm text-muted-foreground">Current Capacity</span>
+                      <span className="text-sm font-medium">
+                        {room.currentOccupancy} / {room.maxCapacity}
+                      </span>
+                    </div>
+                    <Progress
+                      value={(room.currentOccupancy / room.maxCapacity) * 100}
+                      className={`h-2.5 ${
+                        room.currentOccupancy >= room.maxCapacity
+                          ? 'bg-destructive/20'
+                          : room.currentOccupancy >= room.maxCapacity * 0.8
+                            ? 'bg-yellow-200'
+                            : 'bg-primary/20'
+                      }`}
+                      indicatorClassName={`${
+                        room.currentOccupancy >= room.maxCapacity
+                          ? 'bg-destructive'
+                          : room.currentOccupancy >= room.maxCapacity * 0.8
+                            ? 'bg-yellow-500'
+                            : 'bg-primary'
+                      }`}
+                    />
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span>Available Spots:</span>
-                    <span className="font-medium">
+
+                  <div className="flex justify-between items-center text-sm">
+                    <span>Available Spots</span>
+                    <span className={`font-medium ${
+                      room.currentOccupancy >= room.maxCapacity
+                        ? 'text-destructive'
+                        : 'text-primary'
+                    }`}>
                       {room.maxCapacity - room.currentOccupancy}
                     </span>
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span>Status:</span>
-                    <span
-                      className={`font-medium ${
-                        room.currentOccupancy >= room.maxCapacity
-                          ? 'text-destructive'
-                          : 'text-primary'
-                      }`}
-                    >
+
+                  <div className="flex justify-between items-center text-sm">
+                    <span>Status</span>
+                    <span className={`font-medium ${
+                      room.currentOccupancy >= room.maxCapacity
+                        ? 'text-destructive'
+                        : 'text-primary'
+                    }`}>
                       {room.currentOccupancy >= room.maxCapacity ? 'FULL' : 'AVAILABLE'}
                     </span>
                   </div>
