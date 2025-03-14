@@ -33,6 +33,15 @@ export default function MemberPortal() {
     refetchInterval: 1000 * 60, // Refresh every minute as backup
   });
 
+  // Sort rooms to show favorites first
+  const sortedRooms = [...rooms].sort((a, b) => {
+    const aIsFavorite = favorites.includes(a.id);
+    const bIsFavorite = favorites.includes(b.id);
+    if (aIsFavorite && !bIsFavorite) return -1;
+    if (!aIsFavorite && bIsFavorite) return 1;
+    return 0;
+  });
+
   // Setup WebSocket for real-time updates
   useWebSocket({
     onMessage: (data) => {
@@ -204,28 +213,40 @@ export default function MemberPortal() {
           {/* Room Status Cards */}
           <div className="space-y-6">
             <h2 className="text-2xl font-semibold">Room Availability</h2>
-            {rooms.filter(room => room.isOpen).map((room) => (
+            {sortedRooms.filter(room => room.isOpen).map((room) => (
               <Card 
                 key={room.id}
                 className={`
-                  transition-all duration-300 hover:shadow-lg
+                  transition-all duration-300 hover:shadow-lg relative
                   ${room.currentOccupancy >= room.maxCapacity ? 'border-destructive/50' : 'border-primary/50'}
                   ${favorites.includes(room.id) ? 'bg-primary/5' : ''}
                 `}
               >
                 <CardHeader>
                   <CardTitle className="flex items-center justify-between">
-                    <span>{room.name}</span>
+                    <span className="flex items-center gap-2">
+                      {favorites.includes(room.id) && (
+                        <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full">
+                          Favorite
+                        </span>
+                      )}
+                      {room.name}
+                    </span>
                     <Button
                       variant="ghost"
                       size="icon"
                       onClick={() => toggleFavorite.mutate(room.id)}
-                      className="transition-transform hover:scale-110"
+                      className={`
+                        transition-transform hover:scale-110
+                        ${toggleFavorite.isPending ? 'opacity-50' : ''}
+                      `}
+                      disabled={toggleFavorite.isPending}
                     >
                       <Heart 
-                        className={`h-5 w-5 ${
-                          favorites.includes(room.id) ? 'fill-current text-red-500' : ''
-                        }`}
+                        className={`
+                          h-5 w-5 transition-all duration-300
+                          ${favorites.includes(room.id) ? 'fill-current text-red-500 scale-110' : 'scale-100'}
+                        `}
                       />
                     </Button>
                   </CardTitle>
