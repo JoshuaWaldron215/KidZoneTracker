@@ -217,10 +217,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Update member preferences route
+  // Add new route to check phone verification status
+  app.get("/api/members/phone-status", authenticateMember, async (req: any, res) => {
+    try {
+      if (!req.member.phone) {
+        return res.status(400).json({ 
+          verified: false,
+          message: "No phone number provided" 
+        });
+      }
+
+      // Check if phone number is verified
+      const isValid = await validatePhoneNumber(req.member.phone);
+      res.json({ 
+        verified: isValid,
+        message: isValid ? 
+          "Phone number is verified" : 
+          "Phone number needs verification. Please verify your number with Twilio to receive SMS notifications."
+      });
+    } catch (error) {
+      console.error('Phone status check failed:', error);
+      res.status(500).json({ 
+        verified: false,
+        message: "Failed to check phone verification status" 
+      });
+    }
+  });
+
+  // Update preferences route to handle SMS separately
   app.post("/api/members/preferences", authenticateMember, async (req: any, res) => {
     try {
       console.log('Updating preferences for member:', req.member.id, 'with data:', req.body);
+
+      // If enabling SMS, verify phone first
+      if (req.body.sms && req.member.phone) {
+        const isValid = await validatePhoneNumber(req.member.phone);
+        if (!isValid) {
+          return res.status(400).json({ 
+            message: "Cannot enable SMS: Phone number needs verification",
+            requiresVerification: true
+          });
+        }
+      }
 
       await storage.updateMemberPreferences(req.member.id, req.body);
       res.json({ message: "Preferences updated" });

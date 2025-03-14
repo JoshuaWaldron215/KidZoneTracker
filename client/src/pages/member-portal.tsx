@@ -9,7 +9,7 @@ import { Bell, Heart, RefreshCcw, Send } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useWebSocket } from "@/hooks/use-websocket";
-import type { Room, Member } from "@shared/schema";
+import type { Room, Member, PhoneStatus } from "@shared/schema"; // Updated type
 
 export default function MemberPortal() {
   const [, setLocation] = useLocation();
@@ -85,6 +85,12 @@ export default function MemberPortal() {
     },
   });
 
+  // Add phone status query
+  const { data: phoneStatus } = useQuery<PhoneStatus>({ // Added type
+    queryKey: ["/api/members/phone-status"],
+    enabled: notificationPrefs.sms && !!member?.phone,
+  });
+
   const updatePreferences = useMutation({
     mutationFn: async (prefs: typeof notificationPrefs) => {
       console.log('Sending preferences update:', prefs);
@@ -99,7 +105,20 @@ export default function MemberPortal() {
           },
         }
       );
-      return response.json();
+      const data = await response.json();
+
+      // If phone verification required, show message
+      if (data.requiresVerification) {
+        toast({
+          title: "Phone Verification Required",
+          description: "Your phone number needs to be verified before enabling SMS notifications. Please contact support to verify your number.",
+          variant: "destructive",
+        });
+        // Revert SMS toggle
+        return { ...prefs, sms: false };
+      }
+
+      return data;
     },
     onSuccess: () => {
       toast({
@@ -274,6 +293,11 @@ export default function MemberPortal() {
                       <label className="font-medium">SMS Notifications</label>
                       <p className="text-sm text-muted-foreground">
                         Get text messages for important updates
+                        {phoneStatus && !phoneStatus.verified && (
+                          <span className="block text-destructive">
+                            * Phone number needs verification
+                          </span>
+                        )}
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
@@ -285,12 +309,12 @@ export default function MemberPortal() {
                           updatePreferences.mutate(newPrefs);
                         }}
                       />
-                      {notificationPrefs.sms && (
+                      {notificationPrefs.sms && member?.phone && (
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => testSMS.mutate()}
-                          disabled={testSMS.isPending}
+                          disabled={testSMS.isPending || (phoneStatus && !phoneStatus.verified)}
                         >
                           <Send className="h-4 w-4 mr-2" />
                           Test SMS
