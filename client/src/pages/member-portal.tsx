@@ -264,18 +264,18 @@ export default function MemberPortal() {
                         size="icon"
                         onClick={() => toggleFavorite.mutate(room.id)}
                         className={`
-                          transition-transform hover:scale-110
+                          transition-all duration-300 hover:scale-110
                           ${toggleFavorite.isPending ? 'opacity-50' : ''}
-                          ${favorites.includes(room.id) ? 'bg-red-50' : ''}
+                          ${favorites.includes(room.id) ? 'bg-red-50 hover:bg-red-100' : ''}
                         `}
                         disabled={toggleFavorite.isPending}
                       >
                         <Heart 
                           className={`
-                            h-5 w-5 transition-all duration-300
+                            h-5 w-5 transition-colors duration-300
                             ${favorites.includes(room.id) 
-                              ? 'fill-current text-red-500 scale-110' 
-                              : 'text-muted-foreground scale-100 hover:text-red-500'
+                              ? 'fill-red-500 text-red-500' 
+                              : 'text-muted-foreground hover:text-red-500'
                             }
                           `}
                         />
