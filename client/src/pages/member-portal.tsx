@@ -87,6 +87,7 @@ export default function MemberPortal() {
 
   const updatePreferences = useMutation({
     mutationFn: async (prefs: typeof notificationPrefs) => {
+      console.log('Sending preferences update:', prefs);
       const response = await apiRequest(
         "POST",
         "/api/members/preferences",
@@ -94,6 +95,7 @@ export default function MemberPortal() {
         {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("memberToken")}`,
+            'Content-Type': 'application/json'
           },
         }
       );
@@ -105,7 +107,8 @@ export default function MemberPortal() {
         description: "Notification preferences updated",
       });
     },
-    onError: () => {
+    onError: (error) => {
+      console.error('Failed to update preferences:', error);
       toast({
         title: "Error",
         description: "Failed to update preferences",

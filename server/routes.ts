@@ -218,21 +218,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update member preferences route
-  app.put("/api/members/preferences", authenticateMember, async (req: any, res) => {
+  app.post("/api/members/preferences", authenticateMember, async (req: any, res) => {
     try {
-      // If SMS is enabled, validate phone number
-      if (req.body.sms && req.member.phone) {
-        const isValid = await validatePhoneNumber(req.member.phone);
-        if (!isValid) {
-          return res.status(400).json({ message: "Invalid phone number" });
-        }
-      }
+      console.log('Updating preferences for member:', req.member.id, 'with data:', req.body);
 
       await storage.updateMemberPreferences(req.member.id, req.body);
       res.json({ message: "Preferences updated" });
     } catch (error) {
       console.error('Failed to update preferences:', error);
-      res.status(500).json({ message: "Failed to update preferences" });
+      res.status(500).json({ 
+        message: "Failed to update preferences",
+        details: error instanceof Error ? error.message : undefined
+      });
     }
   });
 
