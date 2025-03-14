@@ -8,6 +8,7 @@ import Portal from "@/pages/portal";
 import Login from "@/pages/login";
 import StaffManagement from "@/pages/staff-management";
 import MemberPortal from "@/pages/member-portal";
+import MemberManagement from "@/pages/member-management";
 import { ErrorBoundary } from "@/components/error-boundary";
 
 function AppRoutes() {
@@ -19,6 +20,7 @@ function AppRoutes() {
       <Route path="/login" component={Login} />
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/staff" component={StaffManagement} />
+      <Route path="/member-management" component={MemberManagement} />
       <Route component={NotFound} />
     </Switch>
   );

@@ -93,7 +93,7 @@ export default function Dashboard() {
                 </Button>
                 <Button 
                   variant="outline" 
-                  onClick={() => setLocation("/members")}
+                  onClick={() => setLocation("/member-management")}
                   className="flex items-center gap-2"
                 >
                   <Users className="h-4 w-4" />
