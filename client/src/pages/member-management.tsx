@@ -1,11 +1,12 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
 import { useLocation } from "wouter";
 import type { Member } from "@shared/schema";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, CheckCircle, XCircle, Phone, Mail } from "lucide-react";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 export default function MemberManagement() {
   const [, setLocation] = useLocation();
@@ -19,6 +20,37 @@ export default function MemberManagement() {
       toast({
         title: "Error",
         description: "Failed to load members",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Toggle verification status mutation
+  const toggleVerification = useMutation({
+    mutationFn: async ({ memberId, isVerified }: { memberId: number; isVerified: boolean }) => {
+      const response = await apiRequest(
+        "POST",
+        `/api/members/${memberId}/verify`,
+        { isVerified },
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        }
+      );
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/members"] });
+      toast({
+        title: "Success",
+        description: "Member verification status updated",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update member verification",
         variant: "destructive",
       });
     },
@@ -52,27 +84,75 @@ export default function MemberManagement() {
             <Card key={member.id}>
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
-                  {member.name}
-                  <span className="text-sm font-normal text-muted-foreground">
-                    {member.email}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    {member.name}
+                    {member.isVerified ? (
+                      <CheckCircle className="h-4 w-4 text-green-500" />
+                    ) : (
+                      <XCircle className="h-4 w-4 text-red-500" />
+                    )}
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <Button
+                      variant={member.isVerified ? "destructive" : "default"}
+                      size="sm"
+                      onClick={() => toggleVerification.mutate({
+                        memberId: member.id,
+                        isVerified: !member.isVerified
+                      })}
+                      disabled={toggleVerification.isPending}
+                    >
+                      {member.isVerified ? "Revoke Verification" : "Verify Member"}
+                    </Button>
+                  </div>
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-2">
+                <div className="space-y-4">
                   <div className="flex justify-between items-center">
-                    <span>Phone:</span>
-                    <span>{member.phone || "Not provided"}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span>Account Created:</span>
-                    <span>
-                      {new Date(member.createdAt).toLocaleDateString()}
+                    <div className="flex items-center gap-2">
+                      <Mail className="h-4 w-4 text-muted-foreground" />
+                      <span>{member.email}</span>
+                    </div>
+                    <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full">
+                      {member.isVerified ? "Verified" : "Unverified"}
                     </span>
                   </div>
+
                   <div className="flex justify-between items-center">
-                    <span>Verified:</span>
-                    <span>{member.isVerified ? "Yes" : "No"}</span>
+                    <div className="flex items-center gap-2">
+                      <Phone className="h-4 w-4 text-muted-foreground" />
+                      <span>{member.phone || "Not provided"}</span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">Account Created:</span>
+                      <p>{new Date(member.createdAt).toLocaleDateString()}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Last Updated:</span>
+                      <p>{new Date(member.updatedAt).toLocaleDateString()}</p>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 p-4 bg-muted rounded-lg">
+                    <h4 className="font-medium mb-2">Notification Preferences</h4>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="text-muted-foreground">Email Notifications:</span>
+                        <p>{member.notificationPreferences?.email ? "Enabled" : "Disabled"}</p>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">SMS Notifications:</span>
+                        <p>{member.notificationPreferences?.sms ? "Enabled" : "Disabled"}</p>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Capacity Alert:</span>
+                        <p>{member.notificationPreferences?.capacity}%</p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </CardContent>

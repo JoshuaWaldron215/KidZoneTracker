@@ -193,7 +193,10 @@ export default function Portal() {
                             <FormControl>
                               <Input type="email" {...field} />
                             </FormControl>
-                            <FormMessage />
+                            <FormMessage className="text-destructive">
+                              {registerMutation.error?.message === "Email already in use" && 
+                               "This email is already registered. Please login instead."}
+                            </FormMessage>
                           </FormItem>
                         )}
                       />
@@ -225,7 +228,7 @@ export default function Portal() {
                       />
                       <div className="flex flex-col gap-4">
                         <Button type="submit" disabled={registerMutation.isPending}>
-                          Create Account
+                          {registerMutation.isPending ? "Creating Account..." : "Create Account"}
                         </Button>
                         <Button
                           type="button"
