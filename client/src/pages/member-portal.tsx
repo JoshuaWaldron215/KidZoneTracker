@@ -1,11 +1,11 @@
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
-import { Bell, Heart, RefreshCcw } from "lucide-react";
+import { Bell, Heart, RefreshCcw, Send } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useWebSocket } from "@/hooks/use-websocket";
@@ -113,6 +113,37 @@ export default function MemberPortal() {
       });
     },
   });
+
+  // Add test SMS mutation
+  const testSMS = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest(
+        "POST",
+        "/api/members/test-sms",
+        undefined,
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("memberToken")}`,
+          },
+        }
+      );
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Test SMS Sent",
+        description: "Check your phone for a test message",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to send test SMS. Please verify your phone number.",
+        variant: "destructive",
+      });
+    },
+  });
+
 
   useEffect(() => {
     if (!localStorage.getItem("memberToken")) {
@@ -242,14 +273,27 @@ export default function MemberPortal() {
                         Get text messages for important updates
                       </p>
                     </div>
-                    <Switch
-                      checked={notificationPrefs.sms}
-                      onCheckedChange={(checked) => {
-                        const newPrefs = { ...notificationPrefs, sms: checked };
-                        setNotificationPrefs(newPrefs);
-                        updatePreferences.mutate(newPrefs);
-                      }}
-                    />
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        checked={notificationPrefs.sms}
+                        onCheckedChange={(checked) => {
+                          const newPrefs = { ...notificationPrefs, sms: checked };
+                          setNotificationPrefs(newPrefs);
+                          updatePreferences.mutate(newPrefs);
+                        }}
+                      />
+                      {notificationPrefs.sms && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => testSMS.mutate()}
+                          disabled={testSMS.isPending}
+                        >
+                          <Send className="h-4 w-4 mr-2" />
+                          Test SMS
+                        </Button>
+                      )}
+                    </div>
                   </div>
 
                   <div className="flex items-center justify-between">

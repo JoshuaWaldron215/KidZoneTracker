@@ -7,6 +7,8 @@ import { sendRoomFullNotification, sendRoomAvailableNotification } from "./email
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import { sendNotification } from './firebase';
+import { validatePhoneNumber, sendSMS } from './sms'; // Assuming these functions are in a separate file
+
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret";
 
@@ -185,11 +187,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Add new member route for testing SMS notifications
+  app.post("/api/members/test-sms", authenticateMember, async (req: any, res) => {
+    try {
+      if (!req.member.phone) {
+        return res.status(400).json({ message: "No phone number provided" });
+      }
+
+      // Validate phone number before sending
+      const isValid = await validatePhoneNumber(req.member.phone);
+      if (!isValid) {
+        return res.status(400).json({ message: "Invalid phone number" });
+      }
+
+      // Send test message
+      const success = await sendSMS({
+        to: req.member.phone,
+        message: "This is a test message from KidZone. Your SMS notifications are working correctly!"
+      });
+
+      if (success) {
+        res.json({ message: "Test SMS sent successfully" });
+      } else {
+        res.status(500).json({ message: "Failed to send test SMS" });
+      }
+    } catch (error) {
+      console.error('Failed to send test SMS:', error);
+      res.status(500).json({ message: "Failed to send test SMS" });
+    }
+  });
+
+  // Update member preferences route
   app.put("/api/members/preferences", authenticateMember, async (req: any, res) => {
     try {
+      // If SMS is enabled, validate phone number
+      if (req.body.sms && req.member.phone) {
+        const isValid = await validatePhoneNumber(req.member.phone);
+        if (!isValid) {
+          return res.status(400).json({ message: "Invalid phone number" });
+        }
+      }
+
       await storage.updateMemberPreferences(req.member.id, req.body);
       res.json({ message: "Preferences updated" });
     } catch (error) {
+      console.error('Failed to update preferences:', error);
       res.status(500).json({ message: "Failed to update preferences" });
     }
   });
