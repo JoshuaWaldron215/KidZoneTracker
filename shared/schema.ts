@@ -141,6 +141,12 @@ export const updateOccupancySchema = z.object({
   occupancy: z.number().min(0),
 });
 
+// Add PhoneStatus type definition after the existing types
+export type PhoneStatus = {
+  verified: boolean;
+  message: string;
+};
+
 // Export types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type InsertRoom = z.infer<typeof insertRoomSchema>;

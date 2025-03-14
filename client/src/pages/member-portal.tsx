@@ -5,11 +5,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
-import { Bell, Heart, RefreshCcw, Send } from "lucide-react";
+import { Bell, Heart, RefreshCcw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useWebSocket } from "@/hooks/use-websocket";
-import type { Room, Member, PhoneStatus } from "@shared/schema"; // Updated type
+import type { Room, Member, PhoneStatus } from "@shared/schema";
 
 export default function MemberPortal() {
   const [, setLocation] = useLocation();
@@ -28,15 +28,34 @@ export default function MemberPortal() {
   });
 
   // Get rooms data with real-time updates
-  const { data: rooms = [], isLoading } = useQuery<Room[]>({
+  const { data: rooms = [], isLoading: roomsLoading } = useQuery<Room[]>({
     queryKey: ["/api/rooms"],
     refetchInterval: 1000 * 60, // Refresh every minute as backup
   });
 
-  // Sort rooms to show favorites first
+  // Get favorite rooms with proper loading state and error handling
+  const { 
+    data: favorites = [], 
+    isLoading: favoritesLoading,
+    error: favoritesError 
+  } = useQuery<number[]>({
+    queryKey: ["/api/members/favorites"],
+    enabled: !!localStorage.getItem("memberToken"), // Only fetch if logged in
+    onError: (error) => {
+      console.error('Failed to fetch favorites:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load favorite rooms",
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Sort rooms to show favorites first (safely handle undefined favorites)
   const sortedRooms = [...rooms].sort((a, b) => {
-    const aIsFavorite = favorites.includes(a.id);
-    const bIsFavorite = favorites.includes(b.id);
+    const favList = favorites || [];
+    const aIsFavorite = favList.includes(a.id);
+    const bIsFavorite = favList.includes(b.id);
     if (aIsFavorite && !bIsFavorite) return -1;
     if (!aIsFavorite && bIsFavorite) return 1;
     return 0;
@@ -46,7 +65,6 @@ export default function MemberPortal() {
   useWebSocket({
     onMessage: (data) => {
       if (data.type === 'ROOMS_UPDATE') {
-        // Update the rooms data in React Query cache
         queryClient.setQueryData(["/api/rooms"], data.rooms);
 
         // Show toast notification for favorite rooms
@@ -61,11 +79,6 @@ export default function MemberPortal() {
         }
       }
     },
-  });
-
-  // Get favorite rooms
-  const { data: favorites = [] } = useQuery<number[]>({
-    queryKey: ["/api/members/favorites"],
   });
 
   const toggleFavorite = useMutation({
@@ -94,101 +107,22 @@ export default function MemberPortal() {
     },
   });
 
-  // Add phone status query
-  const { data: phoneStatus } = useQuery<PhoneStatus>({ // Added type
-    queryKey: ["/api/members/phone-status"],
-    enabled: notificationPrefs.sms && !!member?.phone,
-  });
-
-  const updatePreferences = useMutation({
-    mutationFn: async (prefs: typeof notificationPrefs) => {
-      console.log('Sending preferences update:', prefs);
-      const response = await apiRequest(
-        "POST",
-        "/api/members/preferences",
-        prefs,
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("memberToken")}`,
-            'Content-Type': 'application/json'
-          },
-        }
-      );
-      const data = await response.json();
-
-      // If phone verification required, show message
-      if (data.requiresVerification) {
-        toast({
-          title: "Phone Verification Required",
-          description: "Your phone number needs to be verified before enabling SMS notifications. Please contact support to verify your number.",
-          variant: "destructive",
-        });
-        // Revert SMS toggle
-        return { ...prefs, sms: false };
-      }
-
-      return data;
-    },
-    onSuccess: () => {
-      toast({
-        title: "Success",
-        description: "Notification preferences updated",
-      });
-    },
-    onError: (error) => {
-      console.error('Failed to update preferences:', error);
-      toast({
-        title: "Error",
-        description: "Failed to update preferences",
-        variant: "destructive",
-      });
-    },
-  });
-
-  // Add test SMS mutation
-  const testSMS = useMutation({
-    mutationFn: async () => {
-      const response = await apiRequest(
-        "POST",
-        "/api/members/test-sms",
-        undefined,
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("memberToken")}`,
-          },
-        }
-      );
-      return response.json();
-    },
-    onSuccess: () => {
-      toast({
-        title: "Test SMS Sent",
-        description: "Check your phone for a test message",
-      });
-    },
-    onError: () => {
-      toast({
-        title: "Error",
-        description: "Failed to send test SMS. Please verify your phone number.",
-        variant: "destructive",
-      });
-    },
-  });
-
-
   useEffect(() => {
     if (!localStorage.getItem("memberToken")) {
       setLocation("/portal");
     }
   }, [setLocation]);
 
-  if (isLoading) {
+  if (roomsLoading || favoritesLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <RefreshCcw className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
+
+  // If there's an error with favorites, show rooms without favorite functionality
+  const showFavorites = !favoritesError && Array.isArray(favorites);
 
   return (
     <div className="min-h-screen bg-background">
@@ -219,36 +153,38 @@ export default function MemberPortal() {
                 className={`
                   transition-all duration-300 hover:shadow-lg relative
                   ${room.currentOccupancy >= room.maxCapacity ? 'border-destructive/50' : 'border-primary/50'}
-                  ${favorites.includes(room.id) ? 'bg-primary/5' : ''}
+                  ${showFavorites && favorites.includes(room.id) ? 'bg-primary/5' : ''}
                 `}
               >
                 <CardHeader>
                   <CardTitle className="flex items-center justify-between">
                     <span className="flex items-center gap-2">
-                      {favorites.includes(room.id) && (
+                      {showFavorites && favorites.includes(room.id) && (
                         <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full">
                           Favorite
                         </span>
                       )}
                       {room.name}
                     </span>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => toggleFavorite.mutate(room.id)}
-                      className={`
-                        transition-transform hover:scale-110
-                        ${toggleFavorite.isPending ? 'opacity-50' : ''}
-                      `}
-                      disabled={toggleFavorite.isPending}
-                    >
-                      <Heart 
+                    {showFavorites && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => toggleFavorite.mutate(room.id)}
                         className={`
-                          h-5 w-5 transition-all duration-300
-                          ${favorites.includes(room.id) ? 'fill-current text-red-500 scale-110' : 'scale-100'}
+                          transition-transform hover:scale-110
+                          ${toggleFavorite.isPending ? 'opacity-50' : ''}
                         `}
-                      />
-                    </Button>
+                        disabled={toggleFavorite.isPending}
+                      >
+                        <Heart 
+                          className={`
+                            h-5 w-5 transition-all duration-300
+                            ${favorites.includes(room.id) ? 'fill-current text-red-500 scale-110' : 'scale-100'}
+                          `}
+                        />
+                      </Button>
+                    )}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -265,10 +201,10 @@ export default function MemberPortal() {
                     </div>
                     <div className="flex justify-between items-center">
                       <span>Status:</span>
-                      <span 
+                      <span
                         className={`font-medium ${
-                          room.currentOccupancy >= room.maxCapacity 
-                            ? 'text-destructive' 
+                          room.currentOccupancy >= room.maxCapacity
+                            ? 'text-destructive'
                             : 'text-primary'
                         }`}
                       >
@@ -308,7 +244,6 @@ export default function MemberPortal() {
                       }}
                     />
                   </div>
-
                   <div className="flex items-center justify-between">
                     <div className="space-y-0.5">
                       <label className="font-medium">SMS Notifications</label>
@@ -343,7 +278,6 @@ export default function MemberPortal() {
                       )}
                     </div>
                   </div>
-
                   <div className="flex items-center justify-between">
                     <div className="space-y-0.5">
                       <label className="font-medium">Favorite Room Alerts</label>
@@ -360,7 +294,6 @@ export default function MemberPortal() {
                       }}
                     />
                   </div>
-
                   <div className="space-y-2">
                     <label className="font-medium">Capacity Threshold</label>
                     <p className="text-sm text-muted-foreground mb-2">
