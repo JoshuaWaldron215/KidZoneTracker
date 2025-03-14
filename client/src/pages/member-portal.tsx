@@ -5,9 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
-import { Bell, Heart } from "lucide-react";
+import { Bell, Heart, RefreshCcw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { useWebSocket } from "@/hooks/use-websocket";
 import type { Room, Member } from "@shared/schema";
 
 export default function MemberPortal() {
@@ -17,7 +18,8 @@ export default function MemberPortal() {
   const [notificationPrefs, setNotificationPrefs] = useState({
     email: true,
     sms: false,
-    capacity: 80
+    capacity: 80,
+    notifyOnFavorites: true
   });
 
   // Get member data
@@ -28,7 +30,28 @@ export default function MemberPortal() {
   // Get rooms data with real-time updates
   const { data: rooms = [], isLoading } = useQuery<Room[]>({
     queryKey: ["/api/rooms"],
-    refetchInterval: 1000 * 60, // Refresh every minute
+    refetchInterval: 1000 * 60, // Refresh every minute as backup
+  });
+
+  // Setup WebSocket for real-time updates
+  useWebSocket({
+    onMessage: (data) => {
+      if (data.type === 'ROOMS_UPDATE') {
+        // Update the rooms data in React Query cache
+        queryClient.setQueryData(["/api/rooms"], data.rooms);
+
+        // Show toast notification for favorite rooms
+        if (data.rooms && favorites.includes(data.rooms[0]?.id)) {
+          const room = data.rooms[0];
+          if (room.currentOccupancy < room.maxCapacity) {
+            toast({
+              title: "Favorite Room Available",
+              description: `${room.name} now has space available!`,
+            });
+          }
+        }
+      }
+    },
   });
 
   // Get favorite rooms
@@ -98,7 +121,11 @@ export default function MemberPortal() {
   }, [setLocation]);
 
   if (isLoading) {
-    return <div>Loading...</div>;
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <RefreshCcw className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
   }
 
   return (
@@ -125,7 +152,14 @@ export default function MemberPortal() {
           <div className="space-y-6">
             <h2 className="text-2xl font-semibold">Room Availability</h2>
             {rooms.filter(room => room.isOpen).map((room) => (
-              <Card key={room.id}>
+              <Card 
+                key={room.id}
+                className={`
+                  transition-all duration-300 hover:shadow-lg
+                  ${room.currentOccupancy >= room.maxCapacity ? 'border-destructive/50' : 'border-primary/50'}
+                  ${favorites.includes(room.id) ? 'bg-primary/5' : ''}
+                `}
+              >
                 <CardHeader>
                   <CardTitle className="flex items-center justify-between">
                     <span>{room.name}</span>
@@ -133,6 +167,7 @@ export default function MemberPortal() {
                       variant="ghost"
                       size="icon"
                       onClick={() => toggleFavorite.mutate(room.id)}
+                      className="transition-transform hover:scale-110"
                     >
                       <Heart 
                         className={`h-5 w-5 ${
@@ -211,6 +246,23 @@ export default function MemberPortal() {
                       checked={notificationPrefs.sms}
                       onCheckedChange={(checked) => {
                         const newPrefs = { ...notificationPrefs, sms: checked };
+                        setNotificationPrefs(newPrefs);
+                        updatePreferences.mutate(newPrefs);
+                      }}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <label className="font-medium">Favorite Room Alerts</label>
+                      <p className="text-sm text-muted-foreground">
+                        Get notified when favorite rooms have availability
+                      </p>
+                    </div>
+                    <Switch
+                      checked={notificationPrefs.notifyOnFavorites}
+                      onCheckedChange={(checked) => {
+                        const newPrefs = { ...notificationPrefs, notifyOnFavorites: checked };
                         setNotificationPrefs(newPrefs);
                         updatePreferences.mutate(newPrefs);
                       }}
